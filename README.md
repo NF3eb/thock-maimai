@@ -1,6 +1,6 @@
 # Thock maimai
 
-Windows 原生键盘音效与全屏烟花应用，使用 Win32、Direct3D 11。项目最初基于 [Thock 1.23.0](https://github.com/kamillobinski/thock/tree/1.23.0)，fork自[Thock maimai v1.1.1](https://github.com/wzk112/thock-maimai) ，此fork版本仅维护 Windows 版本。
+Windows 原生键盘音效与全屏烟花应用，使用 Win32、Direct3D 11X 和 Audio2。项目最初基于 [Thock 1.23.0](https://github.com/kamillobinski/thock/tree/1.23.0)，fork自 [Thock maimai v1.1.1](https://github.com/wzk112/thock-maimai) ，此fork版本仅维护 Windows 版本。
 
 # 下载与使用
 
