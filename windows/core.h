@@ -94,6 +94,14 @@ enum class Sound
     Firework,
     TapEx
 };
+enum class MouseButton
+{
+    Left,
+    Right,
+    Middle,
+    Back,
+    Forward
+};
 inline const std::array<const char *, 7> soundFiles = {"answer.wav", "tap.wav", "touch.wav", "break-perfect.wav", "break-critical.wav", "touch-firework.wav", "tap-ex.wav"};
 // Pack 0 = mixed; 1..7 = answer, tap, touch, critical break, fireworks, tap-ex, perfect break.
 inline Sound route(unsigned key, int pack)
@@ -115,17 +123,43 @@ inline Sound route(unsigned key, int pack)
     case 7:
         return Sound::BreakPerfect;
     }
-    if(key==16||key==17||key==18||key==91||key==92)return Sound::Answer;//Shift Ctrl Alt Win
-    if(key==13||key==108)return Sound::BreakCritical;//Enter 小键盘Enter
-    if(key==27||key==9||key==20||key==144||key==45||key==93||key==145||key==19||key==106||key==107||key==109||key==110||key==111)return Sound::BreakPerfect;//Esc Tab CapsLock NumLock Insert Menu ScrollLock PauseBreak 小键盘+-*/. 
-    if(key==44)return Sound::Firework;//PrintScreen
-    if(key==32||key==8||key==46||key==33||key==34||key==35||key==36)return Sound::TapEx;//Space Backspace Delete Pageup Pagedown End Home
-    if((key>=48&&key<=57)||(key>=96&&key<=105)||(key>=112&&key<=123)||(key>=37&&key<=40))return Sound::Touch;//0-9 小键盘0-9 F1-F12 上下左右
-    return Sound::Tap;//其他按键
+    if (key == 16 || key == 17 || key == 18 || key == 91 || key == 92)
+        return Sound::Answer; // Shift Ctrl Alt Win -> 正解音
+    else if (key == 13 || key == 108)
+        return Sound::BreakCritical; // Enter 小键盘Enter -> 绝赞大p
+    else if (key == 27 || key == 9 || key == 20 || key == 144 || key == 45 || key == 93 || key == 145 || key == 19 || key == 106 || key == 107 || key == 109 || key == 110 || key == 111)
+        return Sound::BreakPerfect; // Esc Tab CapsLock NumLock Insert Menu ScrollLock PauseBreak 小键盘+-*/. -> 绝赞小p
+    else if (key == 44)
+        return Sound::Firework; // PrintScreen -> 烟花
+    else if (key == 32 || key == 8 || key == 46 || key == 33 || key == 34 || key == 35 || key == 36)
+        return Sound::TapEx; // Space Backspace Delete Pageup Pagedown End Home -> 带套tap
+    else if ((key >= 48 && key <= 57) || (key >= 96 && key <= 105) || (key >= 112 && key <= 123) || (key >= 37 && key <= 40))
+        return Sound::Touch; // 0-9 小键盘0-9 F1-F12 上下左右 -> touch
+    else
+        return Sound::Tap; // 其他按键 -> tap
 }
-inline Sound mouseSound(int pack)
+// Customize per-button mouse sounds for mixed mode here.
+inline Sound mixedMouseSound(MouseButton button)
 {
-    return (pack == 0 || pack == 3) ? Sound::Touch : route(0, pack);
+    switch (button)
+    {
+    case MouseButton::Left:
+        return Sound::Touch;
+    case MouseButton::Right:
+        return Sound::Tap;
+    case MouseButton::Middle:
+        return Sound::BreakPerfect;
+    case MouseButton::Back:
+        return Sound::Answer;
+    case MouseButton::Forward:
+        return Sound::Answer;
+    }
+    return Sound::Touch;
+}
+inline Sound mouseSound(int pack, MouseButton button)
+{
+    // Only mixed mode uses the per-button table; all other modes stay uniform.
+    return pack == 0 ? mixedMouseSound(button) : route(0, pack);
 }
 struct Settings
 {

@@ -195,8 +195,8 @@ class Application
         add(L"BUTTON", L"选择素材文件夹…", BS_PUSHBUTTON | WS_TABSTOP, 245, 328, 205, 38, IMPORT);
         add(L"BUTTON", L"恢复内置素材", BS_PUSHBUTTON | WS_TABSTOP, 24, 380, 205, 32, RESET);
         add(L"BUTTON", L"许可与开源", BS_PUSHBUTTON | WS_TABSTOP, 245, 380, 205, 32, LICENSES);
-        helpText = add(L"STATIC", L"混合模式：\nShift Ctrl Alt Win → 正解音\nEnter / 小键盘Enter → 绝赞大p\nEsc Tab CapsLock NumLock Insert Menu ScrollLock PauseBreak\n小键盘 + - * / . → 绝赞小p\nPrintScreen → 烟花\nSpace Backspace Delete Pageup Pagedown End Home → 带套tap\n0-9 小键盘0-9 F1-F12 上下左右 → touch\n其他按键 → tap\n非混合模式：所有按键使用所选音效。", 0, 24, 430, 440, 180, 0);
-        status = add(L"STATIC", L"加载中…", 0, 24, 622, 440, 55, 0);
+        helpText = add(L"STATIC", L"混合模式：\nShift Ctrl Alt Win → 正解音\nEnter / 小键盘Enter → 绝赞大p\nEsc Tab CapsLock NumLock Insert Menu → 绝赞小p\nScrollLock PauseBreak 小键盘+-*/. → 绝赞小p\nPrintScreen → 烟花\nSpace Backspace Delete Pageup Pagedown End Home → 带套tap\n0-9 小键盘0-9 F1-F12 上下左右 → touch\n鼠标左键 → touch    鼠标右键 → tap\n鼠标中键 → 绝赞小p    鼠标侧键 → 正解音\n其他按键 → tap\n非混合模式：所有按键使用所选音效。", 0, 24, 422, 440, 210, 0);
+        status = add(L"STATIC", L"加载中…", 0, 24, 645, 440, 55, 0);
         for (auto [id, value] : {std::pair{ENABLE, settings.keyboardEnabled}, {MOUSE, settings.mouseEnabled}, {FIREWORK, settings.fireworks}, {HDR, settings.hdr}, {ALL, settings.allDisplays}})
             CheckDlgButton(window, id, value ? BST_CHECKED : BST_UNCHECKED);
         SendMessage(combo, CB_SETCURSEL, settings.pack, 0);
@@ -348,22 +348,23 @@ class Application
             if (input->header.dwType == RIM_TYPEMOUSE)
             {
                 USHORT flags = input->data.mouse.usButtonFlags;
-                auto mouseButton = [&](size_t index, USHORT downFlag, USHORT upFlag)
+                auto mouseButton = [&](MouseButton button, USHORT downFlag, USHORT upFlag)
                 {
+                    size_t index = size_t(button);
                     if (flags & upFlag)
                         mouseHeld[index] = false;
                     if ((flags & downFlag) && !mouseHeld[index])
                     {
                         mouseHeld[index] = true;
                         if (!suppress)
-                            trigger(mouseSound(settings.pack), false, false, true);
+                            trigger(mouseSound(settings.pack, button), false, false, true);
                     }
                 };
-                mouseButton(0, RI_MOUSE_LEFT_BUTTON_DOWN, RI_MOUSE_LEFT_BUTTON_UP);
-                mouseButton(1, RI_MOUSE_RIGHT_BUTTON_DOWN, RI_MOUSE_RIGHT_BUTTON_UP);
-                mouseButton(2, RI_MOUSE_MIDDLE_BUTTON_DOWN, RI_MOUSE_MIDDLE_BUTTON_UP);
-                mouseButton(3, RI_MOUSE_BUTTON_4_DOWN, RI_MOUSE_BUTTON_4_UP);
-                mouseButton(4, RI_MOUSE_BUTTON_5_DOWN, RI_MOUSE_BUTTON_5_UP);
+                mouseButton(MouseButton::Left, RI_MOUSE_LEFT_BUTTON_DOWN, RI_MOUSE_LEFT_BUTTON_UP);
+                mouseButton(MouseButton::Right, RI_MOUSE_RIGHT_BUTTON_DOWN, RI_MOUSE_RIGHT_BUTTON_UP);
+                mouseButton(MouseButton::Middle, RI_MOUSE_MIDDLE_BUTTON_DOWN, RI_MOUSE_MIDDLE_BUTTON_UP);
+                mouseButton(MouseButton::Back, RI_MOUSE_BUTTON_4_DOWN, RI_MOUSE_BUTTON_4_UP);
+                mouseButton(MouseButton::Forward, RI_MOUSE_BUTTON_5_DOWN, RI_MOUSE_BUTTON_5_UP);
                 break;
             }
             if (input->header.dwType != RIM_TYPEKEYBOARD)
@@ -561,13 +562,13 @@ public:
         wc.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
         wc.hIcon = LoadIcon(nullptr, IDI_APPLICATION);
         RegisterClass(&wc);
-        HWND w = CreateWindow(wc.lpszClassName, L"Thock maimai", WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX, CW_USEDEFAULT, CW_USEDEFAULT, 500, 700, nullptr, nullptr, h, this);
+        HWND w = CreateWindow(wc.lpszClassName, L"Thock maimai", WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX, CW_USEDEFAULT, CW_USEDEFAULT, 500, 760, nullptr, nullptr, h, this);
         if (!w)
             throw std::runtime_error("Settings window failed");
         controls();
         UINT dpi = GetDpiForWindow(window);
         scaleControls(dpi);
-        RECT desired{0, 0, MulDiv(480, dpi, 96), MulDiv(700, dpi, 96)};
+        RECT desired{0, 0, MulDiv(480, dpi, 96), MulDiv(760, dpi, 96)};
         AdjustWindowRectExForDpi(&desired, DWORD(GetWindowLongPtr(window, GWL_STYLE)), FALSE, 0, dpi);
         SetWindowPos(window, nullptr, 0, 0, desired.right - desired.left, desired.bottom - desired.top, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
         tray.cbSize = sizeof(tray);
@@ -752,7 +753,7 @@ void Application::integrationCheck(const fs::path &output)
     for (int index = 0; index <= 7; ++index)
     {
         pack(index);
-        Sound sound = mouseSound(index);
+        Sound sound = mouseSound(index, MouseButton::Left);
         size_t previous = soundRequests[size_t(sound)];
         size_t fireworkBefore = fireworkCount;
         mouseClick(MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP);
