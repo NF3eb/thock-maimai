@@ -27,7 +27,7 @@ class Audio : public IXAudio2EngineCallback {
     Com<IXAudio2> engine;IXAudio2MasteringVoice* master=nullptr;
     struct Playing {IXAudio2SourceVoice* voice=nullptr;};std::vector<Playing> voices;
 public:
-    std::array<Wave,6> waves;bool available=false;
+    std::array<Wave,7> waves;bool available=false;
     size_t submitted=0;
     HRESULT lastError=S_OK;
     size_t activeVoices() const {return voices.size();}

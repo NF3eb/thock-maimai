@@ -10,7 +10,8 @@ def embed(assets, shader, output):
     output.mkdir(parents=True, exist_ok=True)
     emitters = json.loads((assets / 'maimai-fireworks.json').read_text(encoding='utf-8'))
     names = {'maimai-fireworks.json', 'ASSET-LICENSE.txt', 'answer.wav', 'tap.wav',
-             'touch.wav', 'break-perfect.wav', 'break-critical.wav', 'touch-firework.wav'}
+             'touch.wav', 'break-perfect.wav', 'break-critical.wav', 'touch-firework.wav',
+             'tap-ex.wav'}
     for emitter in emitters:
         names.update(emitter['textures'])
     if any(e['material'] == 49 for e in emitters):

@@ -86,10 +86,11 @@ enum class Sound
     Touch,
     BreakPerfect,
     BreakCritical,
-    Firework
+    Firework,
+    TapEx
 };
-inline const std::array<const char *, 6> soundFiles = {"answer.wav", "tap.wav", "touch.wav", "break-perfect.wav", "break-critical.wav", "touch-firework.wav"};
-// Pack 0 = mixed; 1..5 = answer, tap, touch, critical break, fireworks.
+inline const std::array<const char *, 7> soundFiles = {"answer.wav", "tap.wav", "touch.wav", "break-perfect.wav", "break-critical.wav", "touch-firework.wav", "tap-ex.wav"};
+// Pack 0 = mixed; 1..7 = answer, tap, touch, critical break, fireworks, tap-ex, perfect break.
 inline Sound route(unsigned key, int pack)
 {
     switch (pack)
@@ -104,13 +105,17 @@ inline Sound route(unsigned key, int pack)
         return Sound::BreakCritical;
     case 5:
         return Sound::Firework;
+    case 6:
+        return Sound::TapEx;
+    case 7:
+        return Sound::BreakPerfect;
     }
     if (key == 9)
         return Sound::Firework;
     if (key == 32)
         return Sound::Touch;
     if (key == 13)
-        return Sound::BreakCritical;
+        return Sound::BreakPerfect;
     if (key == 8 || key == 27 || key == 46)
         return Sound::Answer;
     return Sound::Tap;
@@ -129,7 +134,7 @@ struct Settings
         s.fireworks = j.value("fireworks", true);
         s.hdr = j.value("hdr", false);
         s.allDisplays = j.value("allDisplays", false);
-        s.pack = std::clamp(j.value("pack", 0), 0, 5);
+        s.pack = std::clamp(j.value("pack", 0), 0, 7);
         s.volume = std::clamp(j.value("volume", .35f), 0.f, 1.f);
         s.assetPath = j.value("assetPath", std::string{});
         return s;

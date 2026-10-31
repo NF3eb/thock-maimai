@@ -43,7 +43,7 @@ class Application
     double idleCleanup = 0;
     bool testing = false;
     size_t inputEvents = 0, fireworkCount = 0, drawnFrames = 0;
-    std::array<size_t, 6> soundRequests{};
+    std::array<size_t, 7> soundRequests{};
     std::string lastFailure;
     std::vector<std::pair<HWND, RECT>> controlLayout;
     static LRESULT CALLBACK procedure(HWND w, UINT m, WPARAM a, LPARAM b)
@@ -122,7 +122,7 @@ class Application
         add(L"BUTTON", L"所有显示器", BS_AUTOCHECKBOX | WS_TABSTOP, 280, 130, 170, 26, ALL);
         add(L"STATIC", L"音效模式", 0, 24, 176, 105, 24, 0);
         auto combo = add(WC_COMBOBOX, L"", CBS_DROPDOWNLIST | WS_TABSTOP, 130, 170, 310, 250, PACK);
-        for (auto label : {L"混合 · Tab 烟花", L"正解音", L"Tap", L"Touch", L"绝赞", L"烟花 Touch"})
+        for (auto label : {L"混合 · Tab 烟花", L"正解音", L"Tap", L"Touch", L"绝赞", L"烟花 Touch", L"TapEx", L"BreakPerfect"})
             SendMessage(combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(label));
         add(L"STATIC", L"音量", 0, 24, 222, 100, 24, 0);
         auto slider = add(TRACKBAR_CLASS, L"", TBS_HORZ | WS_TABSTOP, 124, 216, 320, 36, VOLUME);
@@ -553,9 +553,9 @@ void Application::integrationCheck(const fs::path &output)
     {SendDlgItemMessage(window,PACK,CB_SETCURSEL,index,0);SendMessage(window,WM_COMMAND,MAKEWPARAM(PACK,CBN_SELCHANGE),0); };
     auto volume = [&](int value)
     {SendDlgItemMessage(window,VOLUME,TBM_SETPOS,TRUE,value);SendMessage(window,WM_HSCROLL,0,0); };
-    check("resourcesLoaded", ready && sim.emitters.size() == 6 && audio->waves.size() == 6);
+    check("resourcesLoaded", ready && sim.emitters.size() == 6 && audio->waves.size() == 7);
     check("defaultHDROff", IsDlgButtonChecked(window, HDR) == BST_UNCHECKED);
-    check("sixPackChoices", SendDlgItemMessage(window, PACK, CB_GETCOUNT, 0, 0) == 6);
+    check("soundModeChoices", SendDlgItemMessage(window, PACK, CB_GETCOUNT, 0, 0) == 8);
     check("noExternalAssetPath", settings.assetPath.empty());
     WNDCLASS wc{};
     wc.hInstance = instance;
@@ -589,7 +589,7 @@ void Application::integrationCheck(const fs::path &output)
         tap(key);
         check(("route_" + std::to_string(key)).c_str(), soundRequests[size_t(sound)] == previous + 1);
     }
-    for (int index = 1; index <= 5; ++index)
+    for (int index = 1; index <= 7; ++index)
     {
         pack(index);
         Sound sound = route('A', index);
