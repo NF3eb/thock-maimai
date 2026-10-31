@@ -25,7 +25,26 @@ Windows 10 / 11，64 位。首次打开设置，关闭窗口后留在托盘，�
 
 默认只在鼠标所在屏幕显示烟花。烟花结束后停止绘制并释放叠加窗口，无常驻预热图层。HDR 暂不作为本版实机验收项，保持默认关闭；普通显示器使用 SDR。不改变系统亮度。
 
-按键只在内存中用于触发，不记录输入内容、不上传。运行不需要网络。偏好设置保存于 `%LOCALAPPDATA%/ThockMaimai/settings.json`。
+按键只在内存中用于触发，不记录输入内容、不上传。运行不需要网络。
+
+偏好设置保存于 `%LOCALAPPDATA%/ThockMaimai/settings.json`。本fork版本与原版本有所区别：
+- 原元素`enabled`更名为`keyboardenabled`，用于控制是否启用键盘按键音效
+- 原元素`volume`使用小数，现将其改为整数
+- 新增元素`mouseEnabled`用于控制是否启用鼠标点击音效
+
+**兼容旧配置**：使用本fork版本打开原版本时，配置文件中如果只有`enabled`，仍会正确读取，不会丢失原来的键盘开关状态，原来的`volume`小数会被自动换算为整数（0.35->35）并存储，因此注意打开本fork版本后再打开原版本会使**音量达到最大**。
+```json
+{
+  "allDisplays": false,
+  "assetPath": "",
+  "fireworks": false,
+  "hdr": false,
+  "keyboardenabled": true,
+  "mouseEnabled": true,
+  "pack": 0,
+  "volume": 10
+}
+```
 
 # 自定义素材
 
@@ -57,7 +76,7 @@ CI 会把 EXE 单独复制到带空格和中文的空目录，再运行上述检
 
 # 代码与素材许可
 
-程序、烟花模拟、动画曲线处理、透明窗口、HDR 后处理、输入与音频逻辑、资源嵌入和打包工具均公开。Thock 原作者为 **Kamil Łobiński**，原 MIT 许可保留；新增应用代码同样采用 MIT。Windows JSON 解析使用 [nlohmann/json 3.12.0](https://github.com/nlohmann/json)，许可位于 `windows/vendor/json.LICENSE`。
+程序、烟花模拟、动画曲线处理、透明窗口、HDR 后处理、输入与音频逻辑、资源嵌入和打包工具均公开。Thock 原作者为 **Kamil Łobiński**，Thock maimai 原作者为[wzk112](https://github.com/wzk112)，原 MIT 许可保留；新增应用代码同样采用 MIT。Windows JSON 解析使用 [nlohmann/json 3.12.0](https://github.com/nlohmann/json)，许可位于 `windows/vendor/json.LICENSE`。
 
 游戏素材由项目维护者确认已取得公开再分发授权后纳入仓库和 Release。**游戏图片、音频、参数及由原游戏转换的着色器不重新授予 MIT 许可**，仍保留各自原权利归属，详见素材目录的 `ASSET-LICENSE.txt`。本项目与 SEGA 无关联，不代表官方认可。HDR 为本程序新增高光增强，并非原游戏素材自带 HDR。
 
