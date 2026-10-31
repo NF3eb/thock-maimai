@@ -1,25 +1,33 @@
 # Thock maimai
 
-Windows 原生键盘音效与全屏烟花应用，使用 Win32、Direct3D 11 和 XAudio2。项目最初基于 [Thock 1.23.0](https://github.com/kamillobinski/thock/tree/1.23.0)，现在仅维护 Windows 版本。
+Windows 原生键盘音效与全屏烟花应用，使用 Win32、Direct3D 11。项目最初基于 [Thock 1.23.0](https://github.com/kamillobinski/thock/tree/1.23.0)，fork自[Thock maimai v1.1.1](https://github.com/wzk112/thock-maimai) ，此fork版本仅维护 Windows 版本。
 
-## 下载与使用
+# 下载与使用
 
-在 [Releases](https://github.com/wzk112/thock-maimai/releases) 下载 `Thock-maimai-Windows-x64.exe`，双击即可。**只需要这一个 EXE**：原烟花贴图、六种声音、动画参数与着色器都编入程序，直接从内存读取，不需要旁边的素材文件夹，不自解压，也不需要另装 Thock 或 .NET。
+在 [Releases](https://github.com/wzk112/thock-maimai/releases) 下载 `Thock-maimai-Windows-x64.exe`，双击即可。**只需要这一个 EXE**：原烟花贴图、七种声音、动画参数与着色器都编入程序，直接从内存读取，不需要旁边的素材文件夹，不自解压，也不需要另装 Thock 或 .NET。
 
 Windows 10 / 11，64 位。首次打开设置，关闭窗口后留在托盘，右键托盘可退出。应用未签名，Windows 可能提示来源未知。
 
-| 模式 | 按键 |
+**混合**模式下，按键声音如下：
+| 按键 | 音效 |
 | --- | --- |
-| 混合 | 普通键 Tap；空格 Touch；回车绝赞；退格、Esc、Delete 正解音；Tab 烟花 |
-| 正解音 / Tap / Touch / 绝赞 / 烟花 Touch | 所有普通键使用所选声音 |
+|修饰键：Shift Ctrl Alt Win|正解音|
+|Enter 小键盘Enter|绝赞大p|
+|Esc Tab CapsLock NumLock Insert Menu ScrollLock PauseBreak 小键盘+-*/. |绝赞小p|
+|截屏PrintScreen|烟花|
+|Space Backspace Delete Pageup Pagedown End Home|带套tap|
+|0-9 小键盘0-9 F1-F12 上下左右|touch|
+|其他按键|tap|
 
-默认音量 35%，烟花开启，**HDR 关闭**。音效、烟花、音量和显示器范围均可调整。长按不重复触发，纯修饰键不触发；设置窗口内的键盘操作不会播放打字音效。音量为 0 或关闭键盘音效会停止按键声音和烟花；仅关闭烟花则继续播放声音。音频设备不可用时仍可显示烟花。
+不选择**混合**模式，则所有按键使用选定的音效。
+
+默认音量 10%，烟花关闭，**HDR 关闭**。音效、烟花、音量和显示器范围均可调整。长按不重复触发，设置窗口内的键盘输入不会播放音效。音量为 0 或关闭键盘音效会停止按键声音和烟花；仅关闭烟花则继续播放声音。音频设备不可用时仍可显示烟花。
 
 默认只在鼠标所在屏幕显示烟花。烟花结束后停止绘制并释放叠加窗口，无常驻预热图层。HDR 暂不作为本版实机验收项，保持默认关闭；普通显示器使用 SDR。不改变系统亮度。
 
 按键只在内存中用于触发，不记录输入内容、不上传。运行不需要网络。偏好设置保存于 `%LOCALAPPDATA%/ThockMaimai/settings.json`。
 
-## 自定义素材
+# 自定义素材
 
 已经内置完整素材，不必导入。需要替换时，点击“选择素材文件夹”；“恢复内置素材”会切回 EXE 内的数据。旧自定义文件夹失效时，程序自动恢复内置素材。
 
@@ -29,7 +37,7 @@ Windows 10 / 11，64 位。首次打开设置，关闭窗口后留在托盘，�
 python tools/generate_demo.py private-assets/windows
 ```
 
-## Windows 构建与检查
+# Windows 构建与检查
 
 需要 Visual Studio 2022 的 C++ 桌面工具、Windows SDK、CMake 和 Python 3。
 
@@ -47,7 +55,7 @@ ctest --test-dir build -C Release --output-on-failure
 
 CI 会把 EXE 单独复制到带空格和中文的空目录，再运行上述检查。CI 无可用音频输出设备时，会明确记录 `audioDeviceAvailable: false`，不会将解码或调用请求宣称为扬声器播放验证。测试不代替真人听音和实体 HDR 亮度测量。独占全屏游戏、安全桌面等环境可能不显示普通桌面叠加窗口。
 
-## 代码与素材许可
+# 代码与素材许可
 
 程序、烟花模拟、动画曲线处理、透明窗口、HDR 后处理、输入与音频逻辑、资源嵌入和打包工具均公开。Thock 原作者为 **Kamil Łobiński**，原 MIT 许可保留；新增应用代码同样采用 MIT。Windows JSON 解析使用 [nlohmann/json 3.12.0](https://github.com/nlohmann/json)，许可位于 `windows/vendor/json.LICENSE`。
 
