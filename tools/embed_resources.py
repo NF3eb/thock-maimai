@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Build a deterministic Win32 RCDATA table for a genuinely standalone EXE."""
 import argparse
+import hashlib
 import json
 from pathlib import Path
 
@@ -27,14 +28,26 @@ def embed(assets, shader, output):
     repo = shader.parent.parent
     files['LICENSE.txt'] = repo / 'LICENSE'
     files['json.LICENSE.txt'] = repo / 'windows/vendor/json.LICENSE'
-    table, rc = [], ['#pragma code_page(65001)', '#include <windows.h>']
+    digest = hashlib.sha256()
+    for name, path in sorted(files.items()):
+        digest.update(name.encode('utf-8'))
+        with path.open('rb') as source:
+            for chunk in iter(lambda: source.read(1024 * 1024), b''):
+                digest.update(chunk)
+    table, rc = [], [f'// embedded content sha256: {digest.hexdigest()}',
+                     '#pragma code_page(65001)', '#include <windows.h>']
     for index, (name, path) in enumerate(sorted(files.items()), 100):
         rc.append(f'{index} RCDATA "{path.as_posix()}"')
         table.append(f'    {{{json.dumps(name)}, {index}}},')
-    (output / 'embedded.rc').write_text('\n'.join(rc) + '\n', encoding='utf-8')
-    (output / 'embedded_table.h').write_text(
+    outputs = {
+        output / 'embedded.rc': '\n'.join(rc) + '\n',
+        output / 'embedded_table.h':
         '#pragma once\nstruct EmbeddedEntry { const char* name; int id; };\n'
-        'inline constexpr EmbeddedEntry embeddedEntries[] = {\n' + '\n'.join(table) + '\n};\n', encoding='utf-8')
+        'inline constexpr EmbeddedEntry embeddedEntries[] = {\n' + '\n'.join(table) + '\n};\n',
+    }
+    for path, content in outputs.items():
+        if not path.is_file() or path.read_text(encoding='utf-8') != content:
+            path.write_text(content, encoding='utf-8')
 
 
 if __name__ == '__main__':

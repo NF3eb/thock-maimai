@@ -14,11 +14,14 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 set(THOCK_ASSET_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../assets" CACHE PATH "Media to embed in the standalone EXE")
 file(GLOB ASSET_INPUTS CONFIGURE_DEPENDS "${THOCK_ASSET_DIR}/*")
 set(EMBEDDED_DIR "${CMAKE_CURRENT_BINARY_DIR}/embedded")
-execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../tools/embed_resources.py"
-  "${THOCK_ASSET_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/effect.hlsl" "${EMBEDDED_DIR}" COMMAND_ERROR_IS_FATAL ANY)
+set(EMBED_COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../tools/embed_resources.py"
+  "${THOCK_ASSET_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/effect.hlsl" "${EMBEDDED_DIR}")
+execute_process(COMMAND ${EMBED_COMMAND} COMMAND_ERROR_IS_FATAL ANY)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${ASSET_INPUTS}
   "${CMAKE_CURRENT_SOURCE_DIR}/effect.hlsl" "${CMAKE_CURRENT_SOURCE_DIR}/../tools/embed_resources.py")
 add_executable(ThockMaimai WIN32 main.cpp renderer.cpp app.manifest "${EMBEDDED_DIR}/embedded.rc")
+add_custom_target(ThockEmbedAssets ALL COMMAND ${EMBED_COMMAND} COMMENT "Embedding current Windows assets" VERBATIM)
+add_dependencies(ThockMaimai ThockEmbedAssets)
 target_include_directories(ThockMaimai PRIVATE "${EMBEDDED_DIR}")
 target_compile_definitions(ThockMaimai PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN _WIN32_WINNT=0x0A00)
 target_compile_options(ThockMaimai PRIVATE /W4 /utf-8 /EHsc)
