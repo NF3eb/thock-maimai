@@ -3,6 +3,7 @@ build*/
 *.exe
 *.pdb
 *.wav
+.vs/
 __pycache__/
 private-assets/
 .idea/
