@@ -171,7 +171,7 @@ class Application
         settings.assetPath = folder.u8string();
         save();
     }
-    void trigger(Sound sound, bool preview = false)
+    void trigger(Sound sound, bool preview = false, bool allowEffects = true)
     {
         if (!ready || locked || (!preview && !settings.enabled))
             return;
@@ -193,7 +193,7 @@ class Application
             idleCleanup = clockSeconds() + 5;
             SetTimer(window, 2, 1000, nullptr);
         }
-        if (sound != Sound::Firework || !settings.fireworks)
+        if (sound != Sound::Firework || !settings.fireworks || !allowEffects)
             return;
         std::vector<HMONITOR> monitors;
         if (settings.allDisplays)
@@ -289,7 +289,7 @@ class Application
                     {
                         mouseHeld[index] = true;
                         if (!suppress)
-                            trigger(Sound::Touch);
+                            trigger(mouseSound(settings.pack), false, false);
                     }
                 };
                 mouseButton(0, RI_MOUSE_LEFT_BUTTON_DOWN, RI_MOUSE_LEFT_BUTTON_UP);
@@ -648,6 +648,16 @@ void Application::integrationCheck(const fs::path &output)
     checkMouse("mouseMiddle", MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP);
     checkMouse("mouseBack", MOUSEEVENTF_XDOWN, MOUSEEVENTF_XUP, XBUTTON1);
     checkMouse("mouseForward", MOUSEEVENTF_XDOWN, MOUSEEVENTF_XUP, XBUTTON2);
+    for (int index = 0; index <= 7; ++index)
+    {
+        pack(index);
+        Sound sound = mouseSound(index);
+        size_t previous = soundRequests[size_t(sound)];
+        size_t fireworkBefore = fireworkCount;
+        mouseClick(MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP);
+        check(("mouse_mode_" + std::to_string(index)).c_str(), soundRequests[size_t(sound)] == previous + 1 && fireworkCount == fireworkBefore);
+    }
+    pack(0);
     auto firework = [&]()
     {
         trigger(Sound::Firework);

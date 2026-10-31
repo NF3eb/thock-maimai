@@ -9,6 +9,10 @@ int main() {
     check(route(13,0)==Sound::BreakCritical); check(route(8,0)==Sound::TapEx);
     check(route(44,0)==Sound::Firework); check(route(37,0)==Sound::Touch);
     check(route(45,0)==Sound::BreakPerfect); check(route(16,0)==Sound::Answer);
+    check(mouseSound(0)==Sound::Touch);check(mouseSound(3)==Sound::Touch);
+    check(mouseSound(1)==Sound::Answer);check(mouseSound(2)==Sound::Tap);
+    check(mouseSound(4)==Sound::BreakCritical);check(mouseSound(5)==Sound::Firework);
+    check(mouseSound(6)==Sound::TapEx);check(mouseSound(7)==Sound::BreakPerfect);
     for(unsigned k=0;k<256;++k) {check(route(k,2)==Sound::Tap);check(route(k,5)==Sound::Firework);check(route(k,6)==Sound::TapEx);check(route(k,7)==Sound::BreakPerfect);}
     check(usableKeyboardKey('A',0x1E));check(!usableKeyboardKey(0,0x1E));
     check(!usableKeyboardKey(0xFF,0x1E));check(!usableKeyboardKey('A',0xFF));

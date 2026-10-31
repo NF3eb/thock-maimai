@@ -123,6 +123,10 @@ inline Sound route(unsigned key, int pack)
     if((key>=48&&key<=57)||(key>=96&&key<=105)||(key>=112&&key<=123)||(key>=37&&key<=40))return Sound::Touch;//0-9 小键盘0-9 F1-F12 上下左右
     return Sound::Tap;//其他按键
 }
+inline Sound mouseSound(int pack)
+{
+    return (pack == 0 || pack == 3) ? Sound::Touch : route(0, pack);
+}
 struct Settings
 {
     bool enabled = true, fireworks = false, hdr = false, allDisplays = false;
