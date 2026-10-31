@@ -125,9 +125,9 @@ inline Sound route(unsigned key, int pack)
 }
 struct Settings
 {
-    bool enabled = true, fireworks = true, hdr = false, allDisplays = false;
+    bool enabled = true, fireworks = false, hdr = false, allDisplays = false;
     int pack = 0;
-    float volume = .35f;
+    float volume = .1f;
     std::string assetPath;
     Json json() const { return {{"enabled", enabled}, {"fireworks", fireworks}, {"hdr", hdr}, {"allDisplays", allDisplays}, {"pack", pack}, {"volume", volume}, {"assetPath", assetPath}}; }
     static Settings parse(const Json &j)
