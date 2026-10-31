@@ -739,17 +739,18 @@ void Application::integrationCheck(const fs::path &output)
     GetWindowRect(target, &targetRect);
     SetCursorPos((targetRect.left + targetRect.right) / 2, (targetRect.top + targetRect.bottom) / 2);
     pump(.05);
-    auto checkMouse = [&](const char *label, DWORD down, DWORD up, DWORD data = 0)
+    auto checkMouse = [&](const char *label, MouseButton button, DWORD down, DWORD up, DWORD data = 0)
     {
-        size_t previous = soundRequests[size_t(Sound::Touch)];
+        Sound sound = mouseSound(settings.pack, button);
+        size_t previous = soundRequests[size_t(sound)];
         mouseClick(down, up, data);
-        check(label, soundRequests[size_t(Sound::Touch)] == previous + 1);
+        check(label, soundRequests[size_t(sound)] == previous + 1);
     };
-    checkMouse("mouseLeft", MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP);
-    checkMouse("mouseRight", MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP);
-    checkMouse("mouseMiddle", MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP);
-    checkMouse("mouseBack", MOUSEEVENTF_XDOWN, MOUSEEVENTF_XUP, XBUTTON1);
-    checkMouse("mouseForward", MOUSEEVENTF_XDOWN, MOUSEEVENTF_XUP, XBUTTON2);
+    checkMouse("mouseLeft", MouseButton::Left, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP);
+    checkMouse("mouseRight", MouseButton::Right, MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP);
+    checkMouse("mouseMiddle", MouseButton::Middle, MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP);
+    checkMouse("mouseBack", MouseButton::Back, MOUSEEVENTF_XDOWN, MOUSEEVENTF_XUP, XBUTTON1);
+    checkMouse("mouseForward", MouseButton::Forward, MOUSEEVENTF_XDOWN, MOUSEEVENTF_XUP, XBUTTON2);
     for (int index = 0; index <= 7; ++index)
     {
         pack(index);
