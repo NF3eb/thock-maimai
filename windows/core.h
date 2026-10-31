@@ -129,15 +129,16 @@ inline Sound mouseSound(int pack)
 }
 struct Settings
 {
-    bool enabled = true, fireworks = false, hdr = false, allDisplays = false;
+    bool keyboardEnabled = true, mouseEnabled = true, fireworks = false, hdr = false, allDisplays = false;
     int pack = 0;
     float volume = .1f;
     std::string assetPath;
-    Json json() const { return {{"enabled", enabled}, {"fireworks", fireworks}, {"hdr", hdr}, {"allDisplays", allDisplays}, {"pack", pack}, {"volume", volume}, {"assetPath", assetPath}}; }
+    Json json() const { return {{"keyboardenabled", keyboardEnabled}, {"mouseEnabled", mouseEnabled}, {"fireworks", fireworks}, {"hdr", hdr}, {"allDisplays", allDisplays}, {"pack", pack}, {"volume", volume}, {"assetPath", assetPath}}; }
     static Settings parse(const Json &j)
     {
         Settings s;
-        s.enabled = j.value("enabled", true);
+        s.keyboardEnabled = j.contains("keyboardenabled") ? j.at("keyboardenabled").get<bool>() : j.value("enabled", true);
+        s.mouseEnabled = j.value("mouseEnabled", true);
         s.fireworks = j.value("fireworks", true);
         s.hdr = j.value("hdr", false);
         s.allDisplays = j.value("allDisplays", false);

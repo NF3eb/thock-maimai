@@ -6,7 +6,7 @@
 #include <chrono>
 #include <iostream>
 static constexpr UINT TRAY = WM_APP + 1;
-static constexpr int ENABLE = 101, FIREWORK = 102, HDR = 103, ALL = 104, PACK = 105, VOLUME = 106, PREVIEW = 107, IMPORT = 108, QUIT = 109, RESET = 110, LICENSES = 111;
+static constexpr int ENABLE = 101, FIREWORK = 102, HDR = 103, ALL = 104, PACK = 105, VOLUME = 106, PREVIEW = 107, IMPORT = 108, QUIT = 109, RESET = 110, LICENSES = 111, MOUSE = 112;
 static double clockSeconds() { return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
 static std::wstring wide(const std::string &s)
 {
@@ -116,26 +116,27 @@ class Application
         auto add = [&](const wchar_t *cls, const wchar_t *label, DWORD style, int x, int y, int w, int h, int id)
         {HWND c=CreateWindowEx(0,cls,label,WS_CHILD|WS_VISIBLE|style,x,y,w,h,window,reinterpret_cast<HMENU>(INT_PTR(id)),instance,nullptr);controlLayout.push_back({c,{x,y,x+w,y+h}});return c; };
         add(L"STATIC", L"Thock maimai", 0, 24, 20, 410, 28, 0);
-        add(L"STATIC", L"按键与鼠标音效、全屏烟花 · 单独运行即可", 0, 24, 54, 420, 24, 0);
-        add(L"BUTTON", L"启用按键与鼠标音效", BS_AUTOCHECKBOX | WS_TABSTOP, 24, 94, 225, 26, ENABLE);
-        add(L"BUTTON", L"启用烟花", BS_AUTOCHECKBOX | WS_TABSTOP, 260, 94, 190, 26, FIREWORK);
-        add(L"BUTTON", L"HDR 高光（默认关闭）", BS_AUTOCHECKBOX | WS_TABSTOP, 24, 130, 240, 26, HDR);
-        add(L"BUTTON", L"所有显示器", BS_AUTOCHECKBOX | WS_TABSTOP, 280, 130, 170, 26, ALL);
-        add(L"STATIC", L"音效模式", 0, 24, 176, 105, 24, 0);
-        auto combo = add(WC_COMBOBOX, L"", CBS_DROPDOWNLIST | WS_TABSTOP, 130, 170, 310, 250, PACK);
+        add(L"STATIC", L"键盘、鼠标音效与全屏烟花 · 单独运行即可", 0, 24, 54, 420, 24, 0);
+        add(L"BUTTON", L"启用键盘按键音效", BS_AUTOCHECKBOX | WS_TABSTOP, 24, 94, 420, 26, ENABLE);
+        add(L"BUTTON", L"启用鼠标点击音效", BS_AUTOCHECKBOX | WS_TABSTOP, 24, 126, 420, 26, MOUSE);
+        add(L"BUTTON", L"启用烟花视觉效果", BS_AUTOCHECKBOX | WS_TABSTOP, 24, 158, 420, 26, FIREWORK);
+        add(L"BUTTON", L"HDR高光", BS_AUTOCHECKBOX | WS_TABSTOP, 24, 190, 220, 26, HDR);
+        add(L"BUTTON", L"所有显示屏", BS_AUTOCHECKBOX | WS_TABSTOP, 260, 190, 190, 26, ALL);
+        add(L"STATIC", L"音效模式", 0, 24, 236, 105, 24, 0);
+        auto combo = add(WC_COMBOBOX, L"", CBS_DROPDOWNLIST | WS_TABSTOP, 130, 230, 310, 250, PACK);
         for (auto label : {L"混合 · Tab 烟花", L"正解音", L"Tap", L"Touch", L"绝赞", L"烟花 Touch", L"TapEx", L"BreakPerfect"})
             SendMessage(combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(label));
-        add(L"STATIC", L"音量", 0, 24, 222, 100, 24, 0);
-        auto slider = add(TRACKBAR_CLASS, L"", TBS_HORZ | WS_TABSTOP, 124, 216, 320, 36, VOLUME);
+        add(L"STATIC", L"音量", 0, 24, 282, 100, 24, 0);
+        auto slider = add(TRACKBAR_CLASS, L"", TBS_HORZ | WS_TABSTOP, 124, 276, 320, 36, VOLUME);
         SendMessage(slider, TBM_SETRANGE, TRUE, MAKELPARAM(0, 100));
         SendMessage(slider, TBM_SETPOS, TRUE, int(settings.volume * 100));
-        add(L"BUTTON", L"预览烟花与音效", BS_PUSHBUTTON | WS_TABSTOP, 24, 270, 205, 38, PREVIEW);
-        add(L"BUTTON", L"选择素材文件夹…", BS_PUSHBUTTON | WS_TABSTOP, 245, 270, 205, 38, IMPORT);
-        add(L"BUTTON", L"恢复内置素材", BS_PUSHBUTTON | WS_TABSTOP, 24, 322, 205, 32, RESET);
-        add(L"BUTTON", L"许可与开源", BS_PUSHBUTTON | WS_TABSTOP, 245, 322, 205, 32, LICENSES);
-        add(L"STATIC", L"混合：普通键 Tap，空格 Touch，回车绝赞，\n退格 / Esc / Delete 正解音，Tab 烟花。\n关闭窗口后留在托盘；右键托盘可退出。", 0, 24, 372, 440, 72, 0);
-        status = add(L"STATIC", L"加载中…", 0, 24, 454, 440, 55, 0);
-        for (auto [id, value] : {std::pair{ENABLE, settings.enabled}, {FIREWORK, settings.fireworks}, {HDR, settings.hdr}, {ALL, settings.allDisplays}})
+        add(L"BUTTON", L"预览烟花与音效", BS_PUSHBUTTON | WS_TABSTOP, 24, 328, 205, 38, PREVIEW);
+        add(L"BUTTON", L"选择素材文件夹…", BS_PUSHBUTTON | WS_TABSTOP, 245, 328, 205, 38, IMPORT);
+        add(L"BUTTON", L"恢复内置素材", BS_PUSHBUTTON | WS_TABSTOP, 24, 380, 205, 32, RESET);
+        add(L"BUTTON", L"许可与开源", BS_PUSHBUTTON | WS_TABSTOP, 245, 380, 205, 32, LICENSES);
+        add(L"STATIC", L"混合：普通键 Tap，空格 Touch，回车绝赞，\n退格 / Esc / Delete 正解音，Tab 烟花。\n关闭窗口后留在托盘；右键托盘可退出。", 0, 24, 430, 440, 72, 0);
+        status = add(L"STATIC", L"加载中…", 0, 24, 512, 440, 55, 0);
+        for (auto [id, value] : {std::pair{ENABLE, settings.keyboardEnabled}, {MOUSE, settings.mouseEnabled}, {FIREWORK, settings.fireworks}, {HDR, settings.hdr}, {ALL, settings.allDisplays}})
             CheckDlgButton(window, id, value ? BST_CHECKED : BST_UNCHECKED);
         SendMessage(combo, CB_SETCURSEL, settings.pack, 0);
     }
@@ -171,9 +172,10 @@ class Application
         settings.assetPath = folder.u8string();
         save();
     }
-    void trigger(Sound sound, bool preview = false, bool allowEffects = true)
+    void trigger(Sound sound, bool preview = false, bool allowEffects = true, bool mouseInput = false)
     {
-        if (!ready || locked || (!preview && !settings.enabled))
+        bool inputEnabled = mouseInput ? settings.mouseEnabled : settings.keyboardEnabled;
+        if (!ready || locked || (!preview && !inputEnabled))
             return;
         if (settings.volume <= 0)
         {
@@ -222,7 +224,7 @@ class Application
     {
         HMENU menu = CreatePopupMenu();
         AppendMenu(menu, MF_STRING, 1, L"打开设置");
-        AppendMenu(menu, MF_STRING | (settings.enabled ? MF_CHECKED : 0), 2, L"启用");
+        AppendMenu(menu, MF_STRING | (settings.keyboardEnabled ? MF_CHECKED : 0), 2, L"启用键盘音效");
         AppendMenu(menu, MF_SEPARATOR, 0, nullptr);
         AppendMenu(menu, MF_STRING, 3, L"退出");
         POINT p{};
@@ -237,12 +239,12 @@ class Application
         }
         if (id == 2)
         {
-            settings.enabled = !settings.enabled;
-            CheckDlgButton(window, ENABLE, settings.enabled ? BST_CHECKED : BST_UNCHECKED);
-            if (!settings.enabled)
+            settings.keyboardEnabled = !settings.keyboardEnabled;
+            CheckDlgButton(window, ENABLE, settings.keyboardEnabled ? BST_CHECKED : BST_UNCHECKED);
+            if (!settings.keyboardEnabled)
             {
                 stopEffects();
-                if (audio)
+                if (!settings.mouseEnabled && audio)
                     audio->stop();
             }
             save();
@@ -289,7 +291,7 @@ class Application
                     {
                         mouseHeld[index] = true;
                         if (!suppress)
-                            trigger(mouseSound(settings.pack), false, false);
+                            trigger(mouseSound(settings.pack), false, false, true);
                     }
                 };
                 mouseButton(0, RI_MOUSE_LEFT_BUTTON_DOWN, RI_MOUSE_LEFT_BUTTON_UP);
@@ -323,15 +325,22 @@ class Application
         case WM_COMMAND:
         {
             int id = LOWORD(a);
-            if (id == ENABLE || id == FIREWORK || id == HDR || id == ALL)
+            if (id == ENABLE || id == MOUSE)
             {
-                settings.enabled = IsDlgButtonChecked(window, ENABLE) == BST_CHECKED;
+                settings.keyboardEnabled = IsDlgButtonChecked(window, ENABLE) == BST_CHECKED;
+                settings.mouseEnabled = IsDlgButtonChecked(window, MOUSE) == BST_CHECKED;
+                if (!settings.keyboardEnabled)
+                    stopEffects();
+                if (!settings.keyboardEnabled && !settings.mouseEnabled && audio)
+                    audio->stop();
+                save();
+            }
+            if (id == FIREWORK || id == HDR || id == ALL)
+            {
                 settings.fireworks = IsDlgButtonChecked(window, FIREWORK) == BST_CHECKED;
                 settings.hdr = IsDlgButtonChecked(window, HDR) == BST_CHECKED;
                 settings.allDisplays = IsDlgButtonChecked(window, ALL) == BST_CHECKED;
                 stopEffects();
-                if (!settings.enabled && audio)
-                    audio->stop();
                 save();
             }
             if (id == PACK && HIWORD(a) == CBN_SELCHANGE)
@@ -486,13 +495,13 @@ public:
         wc.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
         wc.hIcon = LoadIcon(nullptr, IDI_APPLICATION);
         RegisterClass(&wc);
-        HWND w = CreateWindow(wc.lpszClassName, L"Thock maimai", WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX, CW_USEDEFAULT, CW_USEDEFAULT, 500, 530, nullptr, nullptr, h, this);
+        HWND w = CreateWindow(wc.lpszClassName, L"Thock maimai", WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX, CW_USEDEFAULT, CW_USEDEFAULT, 500, 590, nullptr, nullptr, h, this);
         if (!w)
             throw std::runtime_error("Settings window failed");
         controls();
         UINT dpi = GetDpiForWindow(window);
         scaleControls(dpi);
-        RECT desired{0, 0, MulDiv(480, dpi, 96), MulDiv(530, dpi, 96)};
+        RECT desired{0, 0, MulDiv(480, dpi, 96), MulDiv(590, dpi, 96)};
         AdjustWindowRectExForDpi(&desired, DWORD(GetWindowLongPtr(window, GWL_STYLE)), FALSE, 0, dpi);
         SetWindowPos(window, nullptr, 0, 0, desired.right - desired.left, desired.bottom - desired.top, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
         tray.cbSize = sizeof(tray);
@@ -658,6 +667,20 @@ void Application::integrationCheck(const fs::path &output)
         check(("mouse_mode_" + std::to_string(index)).c_str(), soundRequests[size_t(sound)] == previous + 1 && fireworkCount == fireworkBefore);
     }
     pack(0);
+    size_t mouseRequests = soundRequests[size_t(Sound::Touch)];
+    toggle(MOUSE, false);
+    mouseClick(MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP);
+    check("mouseToggleStopsSound", soundRequests[size_t(Sound::Touch)] == mouseRequests);
+    toggle(MOUSE, true);
+    mouseClick(MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP);
+    check("mouseToggleResumesSound", soundRequests[size_t(Sound::Touch)] == mouseRequests + 1);
+    toggle(ENABLE, false);
+    size_t keyboardRequests = soundRequests[size_t(Sound::Tap)];
+    tap('A');
+    check("keyboardToggleStopsSound", soundRequests[size_t(Sound::Tap)] == keyboardRequests);
+    mouseClick(MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP);
+    check("mouseWorksWithKeyboardDisabled", soundRequests[size_t(Sound::Touch)] == mouseRequests + 2);
+    toggle(ENABLE, true);
     auto firework = [&]()
     {
         trigger(Sound::Firework);

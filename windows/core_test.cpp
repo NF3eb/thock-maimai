@@ -3,6 +3,12 @@
 void check(bool value) { if(!value)throw std::runtime_error("Assertion failed"); }
 int main() {
     check(!Settings{}.hdr); check(!Settings::parse(Json::object()).hdr);
+    check(Settings{}.mouseEnabled);check(Settings::parse(Json::object()).mouseEnabled);
+    check(!Settings::parse({{"mouseEnabled",false}}).mouseEnabled);
+    check(Settings{}.keyboardEnabled);check(!Settings::parse({{"keyboardenabled",false}}).keyboardEnabled);
+    check(!Settings::parse({{"enabled",false}}).keyboardEnabled);
+    check(Settings::parse({{"keyboardenabled",true},{"enabled",false}}).keyboardEnabled);
+    check(Settings{}.json().contains("keyboardenabled")&&!Settings{}.json().contains("enabled"));
     check(Settings::parse({{"pack",999},{"volume",-2}}).pack==7);
     check(Settings::parse({{"volume",-2}}).volume==0);
     check(route(9,0)==Sound::BreakPerfect); check(route(32,0)==Sound::TapEx);
