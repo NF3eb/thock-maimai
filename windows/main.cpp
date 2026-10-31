@@ -278,10 +278,11 @@ class Application
                 break;
             if (testing)
                 ++inputEvents;
-            unsigned key = input->data.keyboard.VKey;
-            if (key >= 256)
+            auto &keyboard = input->data.keyboard;
+            if (!usableKeyboardKey(keyboard.VKey, keyboard.MakeCode))
                 break;
-            bool up = (input->data.keyboard.Flags & RI_KEY_BREAK) != 0;
+            unsigned key = keyboard.VKey;
+            bool up = (keyboard.Flags & RI_KEY_BREAK) != 0;
             if (up)
             {
                 held[key] = false;
@@ -541,12 +542,14 @@ void Application::integrationCheck(const fs::path &output)
             Sleep(2);
         } while (clockSeconds() < end);
     };
-    auto input = [&](WORD key, bool up)
+    auto input = [&](WORD key, bool up, bool extended = false)
     {INPUT event{};event.type=INPUT_KEYBOARD;
-        event.ki.wScan=WORD(MapVirtualKey(key,MAPVK_VK_TO_VSC));event.ki.dwFlags=KEYEVENTF_SCANCODE|(up?KEYEVENTF_KEYUP:0);
+        event.ki.wScan=WORD(MapVirtualKey(key,MAPVK_VK_TO_VSC));event.ki.dwFlags=KEYEVENTF_SCANCODE|(extended?KEYEVENTF_EXTENDEDKEY:0)|(up?KEYEVENTF_KEYUP:0);
         if(SendInput(1,&event,sizeof(event))!=1)throw std::runtime_error("SendInput failed");pump(.12); };
     auto tap = [&](WORD key)
     {input(key,false);input(key,true); };
+    auto tapExtended = [&](WORD key)
+    {input(key,false,true);input(key,true,true); };
     auto toggle = [&](int id, bool on)
     {CheckDlgButton(window,id,on?BST_CHECKED:BST_UNCHECKED);SendMessage(window,WM_COMMAND,MAKEWPARAM(id,BN_CLICKED),0); };
     auto pack = [&](int index)
@@ -571,6 +574,12 @@ void Application::integrationCheck(const fs::path &output)
     check("foregroundTarget", GetForegroundWindow() == target);
     tap('A');
     check("ordinaryKeyRoutesTap", soundRequests[size_t(Sound::Tap)] == 1 && fireworkCount == 0);
+    for (auto key : {WORD(VK_LEFT), WORD(VK_UP), WORD(VK_RIGHT), WORD(VK_DOWN), WORD(VK_INSERT)})
+    {
+        size_t previous = soundRequests[size_t(Sound::Tap)];
+        tapExtended(key);
+        check(("extended_" + std::to_string(key)).c_str(), soundRequests[size_t(Sound::Tap)] == previous + 1);
+    }
     tap(VK_TAB);
     pump(.15);
     check("tabTriggersFireworks", fireworkCount == 1);
@@ -583,7 +592,7 @@ void Application::integrationCheck(const fs::path &output)
     input(VK_TAB, false);
     input(VK_TAB, true);
     check("heldKeyDeduplicated", fireworkCount == before + 1);
-    for (auto [key, sound] : {std::pair<WORD, Sound>{VK_SPACE, Sound::Touch}, {VK_RETURN, Sound::BreakCritical}, {VK_BACK, Sound::Answer}, {VK_ESCAPE, Sound::Answer}})
+    for (auto [key, sound] : {std::pair<WORD, Sound>{VK_SPACE, Sound::Touch}, {VK_RETURN, Sound::BreakPerfect}, {VK_BACK, Sound::Answer}, {VK_ESCAPE, Sound::Answer}})
     {
         size_t previous = soundRequests[size_t(sound)];
         tap(key);

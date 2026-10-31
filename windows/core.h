@@ -79,6 +79,11 @@ inline std::string readText(const fs::path &p, size_t maxBytes = 2 * 1024 * 1024
         throw std::runtime_error("Cannot read file");
     return std::string(std::istreambuf_iterator<char>(f), {});
 }
+// Raw Input can emit placeholder records for unsupported or overrun keys.
+inline bool usableKeyboardKey(unsigned key, unsigned makeCode)
+{
+    return key != 0 && key < 0xFF && makeCode != 0xFF;
+}
 enum class Sound
 {
     Answer,
