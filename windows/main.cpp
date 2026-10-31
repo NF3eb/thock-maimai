@@ -38,6 +38,7 @@ class Application
     Simulation sim;
     std::vector<std::unique_ptr<Renderer::Overlay>> overlays;
     std::array<bool, 256> held{};
+    std::array<bool, 5> mouseHeld{};
     HFONT font = nullptr;
     HWND status = nullptr;
     double idleCleanup = 0;
@@ -115,8 +116,8 @@ class Application
         auto add = [&](const wchar_t *cls, const wchar_t *label, DWORD style, int x, int y, int w, int h, int id)
         {HWND c=CreateWindowEx(0,cls,label,WS_CHILD|WS_VISIBLE|style,x,y,w,h,window,reinterpret_cast<HMENU>(INT_PTR(id)),instance,nullptr);controlLayout.push_back({c,{x,y,x+w,y+h}});return c; };
         add(L"STATIC", L"Thock maimai", 0, 24, 20, 410, 28, 0);
-        add(L"STATIC", L"键盘音效与全屏烟花 · 单独运行即可", 0, 24, 54, 420, 24, 0);
-        add(L"BUTTON", L"启用键盘音效", BS_AUTOCHECKBOX | WS_TABSTOP, 24, 94, 225, 26, ENABLE);
+        add(L"STATIC", L"按键与鼠标音效、全屏烟花 · 单独运行即可", 0, 24, 54, 420, 24, 0);
+        add(L"BUTTON", L"启用按键与鼠标音效", BS_AUTOCHECKBOX | WS_TABSTOP, 24, 94, 225, 26, ENABLE);
         add(L"BUTTON", L"启用烟花", BS_AUTOCHECKBOX | WS_TABSTOP, 260, 94, 190, 26, FIREWORK);
         add(L"BUTTON", L"HDR 高光（默认关闭）", BS_AUTOCHECKBOX | WS_TABSTOP, 24, 130, 240, 26, HDR);
         add(L"BUTTON", L"所有显示器", BS_AUTOCHECKBOX | WS_TABSTOP, 280, 130, 170, 26, ALL);
@@ -274,10 +275,32 @@ class Application
             if (GetRawInputData(reinterpret_cast<HRAWINPUT>(b), RID_INPUT, bytes.data(), &size, sizeof(RAWINPUTHEADER)) != size)
                 break;
             auto *input = reinterpret_cast<RAWINPUT *>(bytes.data());
-            if (input->header.dwType != RIM_TYPEKEYBOARD)
-                break;
             if (testing)
                 ++inputEvents;
+            bool suppress = GetForegroundWindow() == window;
+            if (input->header.dwType == RIM_TYPEMOUSE)
+            {
+                USHORT flags = input->data.mouse.usButtonFlags;
+                auto mouseButton = [&](size_t index, USHORT downFlag, USHORT upFlag)
+                {
+                    if (flags & upFlag)
+                        mouseHeld[index] = false;
+                    if ((flags & downFlag) && !mouseHeld[index])
+                    {
+                        mouseHeld[index] = true;
+                        if (!suppress)
+                            trigger(Sound::Touch);
+                    }
+                };
+                mouseButton(0, RI_MOUSE_LEFT_BUTTON_DOWN, RI_MOUSE_LEFT_BUTTON_UP);
+                mouseButton(1, RI_MOUSE_RIGHT_BUTTON_DOWN, RI_MOUSE_RIGHT_BUTTON_UP);
+                mouseButton(2, RI_MOUSE_MIDDLE_BUTTON_DOWN, RI_MOUSE_MIDDLE_BUTTON_UP);
+                mouseButton(3, RI_MOUSE_BUTTON_4_DOWN, RI_MOUSE_BUTTON_4_UP);
+                mouseButton(4, RI_MOUSE_BUTTON_5_DOWN, RI_MOUSE_BUTTON_5_UP);
+                break;
+            }
+            if (input->header.dwType != RIM_TYPEKEYBOARD)
+                break;
             auto &keyboard = input->data.keyboard;
             if (!usableKeyboardKey(keyboard.VKey, keyboard.MakeCode))
                 break;
@@ -288,12 +311,13 @@ class Application
                 held[key] = false;
                 break;
             }
-            if (held[key])
-                break;
-            held[key] = true;
-            // Do not echo keyboard navigation in this app's own settings window.
-            if (GetForegroundWindow() != window)
-                trigger(route(key, settings.pack));
+            if (!held[key])
+            {
+                held[key] = true;
+                // Do not echo input in this app's own settings window.
+                if (!suppress)
+                    trigger(route(key, settings.pack));
+            }
             break;
         }
         case WM_COMMAND:
@@ -373,6 +397,7 @@ class Application
         case WM_DISPLAYCHANGE:
             stopEffects();
             held.fill(false);
+            mouseHeld.fill(false);
             return 0;
         case WM_DPICHANGED:
         {
@@ -387,12 +412,14 @@ class Application
             {
                 stopEffects();
                 held.fill(false);
+                mouseHeld.fill(false);
                 if (audio)
                     audio->stop();
             }
             if (a == PBT_APMRESUMEAUTOMATIC && audio)
             {
                 held.fill(false);
+                mouseHeld.fill(false);
                 audio->initialize();
             }
             return TRUE;
@@ -401,6 +428,7 @@ class Application
             {
                 locked = true;
                 held.fill(false);
+                mouseHeld.fill(false);
                 stopEffects();
                 if (audio)
                     audio->stop();
@@ -409,10 +437,12 @@ class Application
             {
                 locked = false;
                 held.fill(false);
+                mouseHeld.fill(false);
             }
             return 0;
         case WM_INPUT_DEVICE_CHANGE:
             held.fill(false);
+            mouseHeld.fill(false);
             return 0;
         case TRAY:
             if (LOWORD(b) == WM_RBUTTONUP)
@@ -473,9 +503,12 @@ public:
         tray.hIcon = wc.hIcon;
         wcscpy_s(tray.szTip, L"Thock maimai");
         Shell_NotifyIcon(NIM_ADD, &tray);
-        RAWINPUTDEVICE keyboard{1, 6, RIDEV_INPUTSINK | RIDEV_DEVNOTIFY, window};
-        if (!RegisterRawInputDevices(&keyboard, 1, sizeof(keyboard)))
-            throw std::runtime_error("Cannot register keyboard input");
+        RAWINPUTDEVICE rawDevices[] = {
+            {1, 6, RIDEV_INPUTSINK | RIDEV_DEVNOTIFY, window},
+            {1, 2, RIDEV_INPUTSINK | RIDEV_DEVNOTIFY, window},
+        };
+        if (!RegisterRawInputDevices(rawDevices, ARRAYSIZE(rawDevices), sizeof(RAWINPUTDEVICE)))
+            throw std::runtime_error("Cannot register raw input");
         WTSRegisterSessionNotification(window, NOTIFY_FOR_THIS_SESSION);
         try
         {
@@ -550,6 +583,18 @@ void Application::integrationCheck(const fs::path &output)
     {input(key,false);input(key,true); };
     auto tapExtended = [&](WORD key)
     {input(key,false,true);input(key,true,true); };
+    auto mouseClick = [&](DWORD down, DWORD up, DWORD data = 0)
+    {
+        INPUT events[2]{};
+        events[0].type = events[1].type = INPUT_MOUSE;
+        events[0].mi.dwFlags = down;
+        events[0].mi.mouseData = data;
+        events[1].mi.dwFlags = up;
+        events[1].mi.mouseData = data;
+        if (SendInput(2, events, sizeof(INPUT)) != 2)
+            throw std::runtime_error("Mouse SendInput failed");
+        pump(.12);
+    };
     auto toggle = [&](int id, bool on)
     {CheckDlgButton(window,id,on?BST_CHECKED:BST_UNCHECKED);SendMessage(window,WM_COMMAND,MAKEWPARAM(id,BN_CLICKED),0); };
     auto pack = [&](int index)
@@ -566,7 +611,7 @@ void Application::integrationCheck(const fs::path &output)
     wc.lpszClassName = L"ThockIntegrationTarget";
     wc.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
     RegisterClass(&wc);
-    HWND target = CreateWindow(wc.lpszClassName, L"Thock CI keyboard target", WS_OVERLAPPEDWINDOW, 40, 40, 450, 240, nullptr, nullptr, instance, nullptr);
+    HWND target = CreateWindow(wc.lpszClassName, L"Thock CI input target", WS_OVERLAPPEDWINDOW, 40, 40, 450, 240, nullptr, nullptr, instance, nullptr);
     ShowWindow(target, SW_SHOW);
     SetForegroundWindow(target);
     SetFocus(target);
@@ -576,24 +621,53 @@ void Application::integrationCheck(const fs::path &output)
     check("ordinaryKeyRoutesTap", soundRequests[size_t(Sound::Tap)] == 1 && fireworkCount == 0);
     for (auto key : {WORD(VK_LEFT), WORD(VK_UP), WORD(VK_RIGHT), WORD(VK_DOWN), WORD(VK_INSERT)})
     {
-        size_t previous = soundRequests[size_t(Sound::Tap)];
+        Sound sound = route(key, 0);
+        size_t previous = soundRequests[size_t(sound)];
         tapExtended(key);
-        check(("extended_" + std::to_string(key)).c_str(), soundRequests[size_t(Sound::Tap)] == previous + 1);
+        check(("extended_" + std::to_string(key)).c_str(), soundRequests[size_t(sound)] == previous + 1);
     }
-    tap(VK_TAB);
-    pump(.15);
-    check("tabTriggersFireworks", fireworkCount == 1);
+    POINT originalCursor{};
+    GetCursorPos(&originalCursor);
+    struct CursorRestore
+    {
+        POINT point;
+        ~CursorRestore() { SetCursorPos(point.x, point.y); }
+    } cursorRestore{originalCursor};
+    RECT targetRect{};
+    GetWindowRect(target, &targetRect);
+    SetCursorPos((targetRect.left + targetRect.right) / 2, (targetRect.top + targetRect.bottom) / 2);
+    pump(.05);
+    auto checkMouse = [&](const char *label, DWORD down, DWORD up, DWORD data = 0)
+    {
+        size_t previous = soundRequests[size_t(Sound::Touch)];
+        mouseClick(down, up, data);
+        check(label, soundRequests[size_t(Sound::Touch)] == previous + 1);
+    };
+    checkMouse("mouseLeft", MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP);
+    checkMouse("mouseRight", MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP);
+    checkMouse("mouseMiddle", MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP);
+    checkMouse("mouseBack", MOUSEEVENTF_XDOWN, MOUSEEVENTF_XUP, XBUTTON1);
+    checkMouse("mouseForward", MOUSEEVENTF_XDOWN, MOUSEEVENTF_XUP, XBUTTON2);
+    auto firework = [&]()
+    {
+        trigger(Sound::Firework);
+        pump(.15);
+    };
+    toggle(FIREWORK, true);
+    firework();
+    check("fireworkTriggersOverlay", fireworkCount == 1);
     check("overlayRendered", drawnFrames > 0 && !overlays.empty() && IsWindowVisible(overlays.front()->hwnd));
     check("overlayDoesNotTakeFocus", GetForegroundWindow() == target);
     check("overlayHitTestTransparent", SendMessage(overlays.front()->hwnd, WM_NCHITTEST, 0, 0) == HTTRANSPARENT);
-    size_t before = fireworkCount;
-    input(VK_TAB, false);
-    input(VK_TAB, false);
-    input(VK_TAB, false);
-    input(VK_TAB, true);
-    check("heldKeyDeduplicated", fireworkCount == before + 1);
-    for (auto [key, sound] : {std::pair<WORD, Sound>{VK_SPACE, Sound::Touch}, {VK_RETURN, Sound::BreakPerfect}, {VK_BACK, Sound::Answer}, {VK_ESCAPE, Sound::Answer}})
+    size_t tapRequests = soundRequests[size_t(Sound::Tap)];
+    input('A', false);
+    input('A', false);
+    input('A', false);
+    input('A', true);
+    check("heldKeyDeduplicated", soundRequests[size_t(Sound::Tap)] == tapRequests + 1);
+    for (auto key : {WORD(VK_SPACE), WORD(VK_RETURN), WORD(VK_BACK), WORD(VK_ESCAPE)})
     {
+        Sound sound = route(key, 0);
         size_t previous = soundRequests[size_t(sound)];
         tap(key);
         check(("route_" + std::to_string(key)).c_str(), soundRequests[size_t(sound)] == previous + 1);
@@ -608,42 +682,40 @@ void Application::integrationCheck(const fs::path &output)
     }
     pack(0);
     toggle(FIREWORK, false);
-    before = fireworkCount;
+    size_t before = fireworkCount;
     size_t requests = soundRequests[size_t(Sound::Firework)];
-    tap(VK_TAB);
+    trigger(Sound::Firework);
+    pump(.05);
     check("effectOffKeepsAudioRequest", fireworkCount == before && soundRequests[size_t(Sound::Firework)] == requests + 1);
     toggle(FIREWORK, true);
     toggle(ENABLE, false);
     before = fireworkCount;
     requests = soundRequests[size_t(Sound::Firework)];
-    tap(VK_TAB);
+    trigger(Sound::Firework);
+    pump(.05);
     check("masterSwitchStopsBoth", fireworkCount == before && soundRequests[size_t(Sound::Firework)] == requests);
     toggle(ENABLE, true);
     volume(0);
     before = fireworkCount;
     requests = soundRequests[size_t(Sound::Firework)];
-    tap(VK_TAB);
+    trigger(Sound::Firework);
+    pump(.05);
     check("zeroVolumeStopsBoth", fireworkCount == before && soundRequests[size_t(Sound::Firework)] == requests);
     volume(35);
-    tap(VK_TAB);
+    firework();
     pump(2.1);
     check("idleClearsAllOverlayWindows", overlays.empty() && sim.bursts.empty());
     before = fireworkCount;
-    tap(VK_TAB);
+    firework();
     check("resumesAfterIdle", fireworkCount == before + 1 && !overlays.empty());
     SendMessage(window, WM_DISPLAYCHANGE, 0, 0);
     check("displayChangeClearsOverlay", overlays.empty());
     before = fireworkCount;
-    tap(VK_TAB);
+    firework();
     check("resumesAfterDisplayChange", fireworkCount == before + 1);
     for (int i = 0; i < 12; ++i)
     {
-        INPUT events[2]{};
-        events[0].type = events[1].type = INPUT_KEYBOARD;
-        events[0].ki.wScan = events[1].ki.wScan = WORD(MapVirtualKey(VK_TAB, MAPVK_VK_TO_VSC));
-        events[0].ki.dwFlags = KEYEVENTF_SCANCODE;
-        events[1].ki.dwFlags = KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP;
-        SendInput(2, events, sizeof(INPUT));
+        trigger(Sound::Firework);
         pump(.025);
     }
     check("rapidBurstBound", sim.bursts.size() <= 6);

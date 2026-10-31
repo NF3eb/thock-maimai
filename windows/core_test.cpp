@@ -5,8 +5,10 @@ int main() {
     check(!Settings{}.hdr); check(!Settings::parse(Json::object()).hdr);
     check(Settings::parse({{"pack",999},{"volume",-2}}).pack==7);
     check(Settings::parse({{"volume",-2}}).volume==0);
-    check(route(9,0)==Sound::Firework); check(route(32,0)==Sound::Touch);
-    check(route(13,0)==Sound::BreakPerfect); check(route(8,0)==Sound::Answer);
+    check(route(9,0)==Sound::BreakPerfect); check(route(32,0)==Sound::TapEx);
+    check(route(13,0)==Sound::BreakCritical); check(route(8,0)==Sound::TapEx);
+    check(route(44,0)==Sound::Firework); check(route(37,0)==Sound::Touch);
+    check(route(45,0)==Sound::BreakPerfect); check(route(16,0)==Sound::Answer);
     for(unsigned k=0;k<256;++k) {check(route(k,2)==Sound::Tap);check(route(k,5)==Sound::Firework);check(route(k,6)==Sound::TapEx);check(route(k,7)==Sound::BreakPerfect);}
     check(usableKeyboardKey('A',0x1E));check(!usableKeyboardKey(0,0x1E));
     check(!usableKeyboardKey(0xFF,0x1E));check(!usableKeyboardKey('A',0xFF));
