@@ -1,4 +1,4 @@
-name: Build and check
+name: Build and check Windows
 on:
   push:
     branches: [main]
@@ -58,18 +58,3 @@ jobs:
             build/standalone/独立 测试/*.png
             build/standalone/独立 测试/error.txt
           if-no-files-found: warn
-  macos:
-    runs-on: macos-26
-    steps:
-      - uses: actions/checkout@v4
-      - name: Build macOS source
-        run: xcodebuild -project Thock.xcodeproj -scheme Thock -configuration Release -derivedDataPath build CODE_SIGNING_ALLOWED=NO ARCHS=arm64 ONLY_ACTIVE_ARCH=YES build
-      - name: Package macOS app
-        run: |
-          codesign --force --deep --sign - 'build/Build/Products/Release/Thock maimai.app'
-          codesign --verify --deep --strict 'build/Build/Products/Release/Thock maimai.app'
-          ditto -c -k --sequesterRsrc --keepParent 'build/Build/Products/Release/Thock maimai.app' build/Thock-maimai-macOS-arm64.zip
-      - uses: actions/upload-artifact@v4
-        with:
-          name: macOS-arm64
-          path: build/Thock-maimai-macOS-arm64.zip

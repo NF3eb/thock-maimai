@@ -1,6 +1,6 @@
 # Thock maimai
 
-键盘音效与全屏烟花。macOS 基于 [Thock 1.23.0](https://github.com/kamillobinski/thock/tree/1.23.0)，Windows 使用 Win32、Direct3D 11 和 XAudio2。
+Windows 原生键盘音效与全屏烟花应用，使用 Win32、Direct3D 11 和 XAudio2。项目最初基于 [Thock 1.23.0](https://github.com/kamillobinski/thock/tree/1.23.0)，现在仅维护 Windows 版本。
 
 ## 下载与使用
 
@@ -23,10 +23,10 @@ Windows 10 / 11，64 位。首次打开设置，关闭窗口后留在托盘，�
 
 已经内置完整素材，不必导入。需要替换时，点击“选择素材文件夹”；“恢复内置素材”会切回 EXE 内的数据。旧自定义文件夹失效时，程序自动恢复内置素材。
 
-仓库的 `assets/` 是 Windows 构建输入；`Thock/MaimaiResources/` 是 macOS 构建输入。转换既有 macOS 资源目录：
+仓库的 `assets/` 是 Windows 构建输入。需要一套可自由分发的演示素材时，可以运行：
 
-```sh
-python3 tools/prepare_local_assets.py '/path/to/MaimaiResources' private-assets/windows
+```powershell
+python tools/generate_demo.py private-assets/windows
 ```
 
 ## Windows 构建与检查
@@ -47,19 +47,10 @@ ctest --test-dir build -C Release --output-on-failure
 
 CI 会把 EXE 单独复制到带空格和中文的空目录，再运行上述检查。CI 无可用音频输出设备时，会明确记录 `audioDeviceAvailable: false`，不会将解码或调用请求宣称为扬声器播放验证。测试不代替真人听音和实体 HDR 亮度测量。独占全屏游戏、安全桌面等环境可能不显示普通桌面叠加窗口。
 
-## macOS
-
-macOS 13.5+，Xcode 26。首次运行需在系统设置的辅助功能中启用全局按键权限。HDR 默认关闭，普通烟花和音效可独立运行。
-
-```sh
-xcodebuild -project Thock.xcodeproj -scheme Thock -configuration Release \
-  -derivedDataPath build CODE_SIGNING_ALLOWED=NO ARCHS=arm64 ONLY_ACTIVE_ARCH=YES build
-```
-
 ## 代码与素材许可
 
-程序、烟花模拟、动画曲线处理、透明窗口、HDR 后处理、输入与音频逻辑、转换和打包工具均公开。Thock 原作者为 **Kamil Łobiński**，原 MIT 许可保留；新增应用代码同样采用 MIT。Windows JSON 解析使用 [nlohmann/json 3.12.0](https://github.com/nlohmann/json)，许可位于 `windows/vendor/json.LICENSE`。
+程序、烟花模拟、动画曲线处理、透明窗口、HDR 后处理、输入与音频逻辑、资源嵌入和打包工具均公开。Thock 原作者为 **Kamil Łobiński**，原 MIT 许可保留；新增应用代码同样采用 MIT。Windows JSON 解析使用 [nlohmann/json 3.12.0](https://github.com/nlohmann/json)，许可位于 `windows/vendor/json.LICENSE`。
 
 游戏素材由项目维护者确认已取得公开再分发授权后纳入仓库和 Release。**游戏图片、音频、参数及由原游戏转换的着色器不重新授予 MIT 许可**，仍保留各自原权利归属，详见素材目录的 `ASSET-LICENSE.txt`。本项目与 SEGA 无关联，不代表官方认可。HDR 为本程序新增高光增强，并非原游戏素材自带 HDR。
 
-技术参考：[Apple EDR](https://developer.apple.com/documentation/metal/performing-your-own-tone-mapping)、[DirectComposition](https://learn.microsoft.com/en-us/windows/win32/api/dxgi1_2/nf-dxgi1_2-idxgifactory2-createswapchainforcomposition)、[Windows Raw Input](https://learn.microsoft.com/en-us/windows/win32/inputdev/using-raw-input)。
+技术参考：[DirectComposition](https://learn.microsoft.com/en-us/windows/win32/api/dxgi1_2/nf-dxgi1_2-idxgifactory2-createswapchainforcomposition)、[Windows Raw Input](https://learn.microsoft.com/en-us/windows/win32/inputdev/using-raw-input)。

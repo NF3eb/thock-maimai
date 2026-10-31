@@ -87,7 +87,7 @@ void Renderer::scene(ID3D11RenderTargetView* target,int width,int height,const S
     context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);context->VSSetShader(spriteVS.Get(),nullptr,0);
     auto samp=sampler.Get();context->PSSetSamplers(0,1,&samp);
     double scale=std::max(width,height)/1000.;
-    // Same material ordering as the macOS scene: color, rings, then stars/spikes.
+    // Material ordering: color, rings, then stars/spikes.
     for(int layer=0;layer<3;++layer)for(auto& b:sim.bursts)for(auto& p:b.particles){
         auto& e=sim.emitters[p.emitter];int mat=e["material"];
         if((mat==49?0:mat==50?1:2)!=layer)continue;
