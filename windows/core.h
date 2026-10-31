@@ -115,15 +115,13 @@ inline Sound route(unsigned key, int pack)
     case 7:
         return Sound::BreakPerfect;
     }
-    if (key == 9)
-        return Sound::Firework;
-    if (key == 32)
-        return Sound::Touch;
-    if (key == 13)
-        return Sound::BreakPerfect;
-    if (key == 8 || key == 27 || key == 46)
-        return Sound::Answer;
-    return Sound::Tap;
+    if(key==16||key==17||key==18||key==91||key==92)return Sound::Answer;//Shift Ctrl Alt Win
+    if(key==13||key==108)return Sound::BreakCritical;//Enter 小键盘Enter
+    if(key==27||key==9||key==20||key==144||key==45||key==93||key==145||key==19||key==106||key==107||key==109||key==110||key==111)return Sound::BreakPerfect;//Esc Tab CapsLock NumLock Insert Menu ScrollLock PauseBreak 小键盘+-*/. 
+    if(key==44)return Sound::Firework;//PrintScreen
+    if(key==32||key==8||key==46||key==33||key==34||key==35||key==36)return Sound::TapEx;//Space Backspace Delete Pageup Pagedown End Home
+    if((key>=48&&key<=57)||(key>=96&&key<=105)||(key>=112&&key<=123)||(key>=37&&key<=40))return Sound::Touch;//0-9 小键盘0-9 F1-F12 上下左右
+    return Sound::Tap;//其他按键
 }
 struct Settings
 {
