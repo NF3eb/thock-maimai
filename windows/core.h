@@ -131,7 +131,7 @@ struct Settings
 {
     bool keyboardEnabled = true, mouseEnabled = true, fireworks = false, hdr = false, allDisplays = false;
     int pack = 0;
-    float volume = .1f;
+    int volume = 10;
     std::string assetPath;
     Json json() const { return {{"keyboardenabled", keyboardEnabled}, {"mouseEnabled", mouseEnabled}, {"fireworks", fireworks}, {"hdr", hdr}, {"allDisplays", allDisplays}, {"pack", pack}, {"volume", volume}, {"assetPath", assetPath}}; }
     static Settings parse(const Json &j)
@@ -143,7 +143,12 @@ struct Settings
         s.hdr = j.value("hdr", false);
         s.allDisplays = j.value("allDisplays", false);
         s.pack = std::clamp(j.value("pack", 0), 0, 7);
-        s.volume = std::clamp(j.value("volume", .35f), 0.f, 1.f);
+        if (j.contains("volume"))
+        {
+            const auto &value = j.at("volume");
+            s.volume = value.is_number_float() ? int(std::lround(value.get<double>() * 100)) : value.get<int>();
+        }
+        s.volume = std::clamp(s.volume, 0, 100);
         s.assetPath = j.value("assetPath", std::string{});
         return s;
     }

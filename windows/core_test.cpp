@@ -11,6 +11,9 @@ int main() {
     check(Settings{}.json().contains("keyboardenabled")&&!Settings{}.json().contains("enabled"));
     check(Settings::parse({{"pack",999},{"volume",-2}}).pack==7);
     check(Settings::parse({{"volume",-2}}).volume==0);
+    check(Settings::parse({{"volume",35}}).volume==35);
+    check(Settings::parse({{"volume",.35}}).volume==35);
+    check(Settings{}.json()["volume"].is_number_integer()&&Settings{}.json()["volume"]==10);
     check(route(9,0)==Sound::BreakPerfect); check(route(32,0)==Sound::TapEx);
     check(route(13,0)==Sound::BreakCritical); check(route(8,0)==Sound::TapEx);
     check(route(44,0)==Sound::Firework); check(route(37,0)==Sound::Touch);

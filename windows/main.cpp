@@ -6,7 +6,7 @@
 #include <chrono>
 #include <iostream>
 static constexpr UINT TRAY = WM_APP + 1;
-static constexpr int ENABLE = 101, FIREWORK = 102, HDR = 103, ALL = 104, PACK = 105, VOLUME = 106, PREVIEW = 107, IMPORT = 108, QUIT = 109, RESET = 110, LICENSES = 111, MOUSE = 112;
+static constexpr int ENABLE = 101, FIREWORK = 102, HDR = 103, ALL = 104, PACK = 105, VOLUME = 106, PREVIEW = 107, IMPORT = 108, QUIT = 109, RESET = 110, LICENSES = 111, MOUSE = 112, VOLUME_VALUE = 113;
 static double clockSeconds() { return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
 static std::wstring wide(const std::string &s)
 {
@@ -40,7 +40,12 @@ class Application
     std::array<bool, 256> held{};
     std::array<bool, 5> mouseHeld{};
     HFONT font = nullptr;
+    HFONT helpFont = nullptr;
     HWND status = nullptr;
+    HWND helpText = nullptr;
+    HWND volumeSlider = nullptr;
+    HWND volumeValue = nullptr;
+    int volumeWheelRemainder = 0;
     double idleCleanup = 0;
     bool testing = false;
     size_t inputEvents = 0, fireworkCount = 0, drawnFrames = 0;
@@ -69,10 +74,64 @@ class Application
             }
         return DefWindowProc(w, m, a, b);
     }
+    static LRESULT CALLBACK volumeSliderProcedure(HWND w, UINT m, WPARAM a, LPARAM b, UINT_PTR, DWORD_PTR ref)
+    {
+        if (m == WM_MOUSEWHEEL)
+        {
+            reinterpret_cast<Application *>(ref)->scrollVolume(GET_WHEEL_DELTA_WPARAM(a));
+            return 0;
+        }
+        return DefSubclassProc(w, m, a, b);
+    }
     void setStatus(const std::wstring &s)
     {
         if (status)
             SetWindowText(status, s.c_str());
+    }
+    void applyVolume(int value, bool persist = true)
+    {
+        settings.volume = std::clamp(value, 0, 100);
+        SetWindowText(volumeValue, std::to_wstring(settings.volume).c_str());
+        SendDlgItemMessage(window, VOLUME, TBM_SETPOS, TRUE, settings.volume);
+        if (persist)
+            save();
+        if (settings.volume == 0)
+        {
+            stopEffects();
+            if (audio)
+                audio->stop();
+        }
+    }
+    void scrollVolume(int delta)
+    {
+        volumeWheelRemainder += delta;
+        int steps = volumeWheelRemainder / WHEEL_DELTA;
+        volumeWheelRemainder %= WHEEL_DELTA;
+        if (steps)
+            applyVolume(settings.volume + steps);
+    }
+    void commitVolumeInput()
+    {
+        auto valueText = text(volumeValue);
+        if (valueText.empty() || !std::all_of(valueText.begin(), valueText.end(), [](wchar_t c) { return c >= L'0' && c <= L'9'; }))
+        {
+            applyVolume(settings.volume, false);
+            return;
+        }
+        int value = 0;
+        for (wchar_t c : valueText)
+            value = std::min(100, value * 10 + int(c - L'0'));
+        applyVolume(value);
+    }
+    bool handleVolumeKeyMessage(const MSG &message)
+    {
+        if (message.hwnd == volumeValue && message.message == WM_KEYDOWN && message.wParam == VK_RETURN)
+        {
+            if ((message.lParam & (1LL << 30)) == 0)
+                SetFocus(window);
+            return true;
+        }
+        return false;
     }
     void save()
     {
@@ -109,14 +168,14 @@ class Application
         audio = std::move(a);
         assetFolder = path;
         ready = true;
-        setStatus(audio->available ? L"已就绪 · 混合模式按 Tab 播放烟花" : L"未找到音频设备 · 烟花仍可使用，连接设备后点击预览重试");
+        setStatus(audio->available ? L"已就绪" : L"未找到音频设备 · 烟花仍可使用，连接设备后点击预览重试");
     }
     void controls()
     {
         auto add = [&](const wchar_t *cls, const wchar_t *label, DWORD style, int x, int y, int w, int h, int id)
         {HWND c=CreateWindowEx(0,cls,label,WS_CHILD|WS_VISIBLE|style,x,y,w,h,window,reinterpret_cast<HMENU>(INT_PTR(id)),instance,nullptr);controlLayout.push_back({c,{x,y,x+w,y+h}});return c; };
-        add(L"STATIC", L"Thock maimai", 0, 24, 20, 410, 28, 0);
-        add(L"STATIC", L"键盘、鼠标音效与全屏烟花 · 单独运行即可", 0, 24, 54, 420, 24, 0);
+        add(L"STATIC", L"Thock maimai(NF3eb remix ver.)", 0, 24, 20, 410, 28, 0);
+        add(L"STATIC", L"键盘、鼠标音效与全屏烟花视觉效果 · 单独运行即可", 0, 24, 54, 420, 24, 0);
         add(L"BUTTON", L"启用键盘按键音效", BS_AUTOCHECKBOX | WS_TABSTOP, 24, 94, 420, 26, ENABLE);
         add(L"BUTTON", L"启用鼠标点击音效", BS_AUTOCHECKBOX | WS_TABSTOP, 24, 126, 420, 26, MOUSE);
         add(L"BUTTON", L"启用烟花视觉效果", BS_AUTOCHECKBOX | WS_TABSTOP, 24, 158, 420, 26, FIREWORK);
@@ -124,18 +183,20 @@ class Application
         add(L"BUTTON", L"所有显示屏", BS_AUTOCHECKBOX | WS_TABSTOP, 260, 190, 190, 26, ALL);
         add(L"STATIC", L"音效模式", 0, 24, 236, 105, 24, 0);
         auto combo = add(WC_COMBOBOX, L"", CBS_DROPDOWNLIST | WS_TABSTOP, 130, 230, 310, 250, PACK);
-        for (auto label : {L"混合 · Tab 烟花", L"正解音", L"Tap", L"Touch", L"绝赞", L"烟花 Touch", L"TapEx", L"BreakPerfect"})
+        for (auto label : {L"混合", L"正解音", L"Tap", L"Touch", L"BreakCritical", L"烟花", L"TapEx", L"BreakPerfect"})
             SendMessage(combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(label));
         add(L"STATIC", L"音量", 0, 24, 282, 100, 24, 0);
-        auto slider = add(TRACKBAR_CLASS, L"", TBS_HORZ | WS_TABSTOP, 124, 276, 320, 36, VOLUME);
-        SendMessage(slider, TBM_SETRANGE, TRUE, MAKELPARAM(0, 100));
-        SendMessage(slider, TBM_SETPOS, TRUE, int(settings.volume * 100));
+        volumeValue = add(L"EDIT", std::to_wstring(settings.volume).c_str(), ES_NUMBER | ES_AUTOHSCROLL | ES_CENTER | WS_TABSTOP, 78, 282, 40, 24, VOLUME_VALUE);
+        volumeSlider = add(TRACKBAR_CLASS, L"", TBS_HORZ | WS_TABSTOP, 124, 276, 320, 36, VOLUME);
+        SetWindowSubclass(volumeSlider, volumeSliderProcedure, VOLUME, reinterpret_cast<DWORD_PTR>(this));
+        SendMessage(volumeSlider, TBM_SETRANGE, TRUE, MAKELPARAM(0, 100));
+        SendMessage(volumeSlider, TBM_SETPOS, TRUE, settings.volume);
         add(L"BUTTON", L"预览烟花与音效", BS_PUSHBUTTON | WS_TABSTOP, 24, 328, 205, 38, PREVIEW);
         add(L"BUTTON", L"选择素材文件夹…", BS_PUSHBUTTON | WS_TABSTOP, 245, 328, 205, 38, IMPORT);
         add(L"BUTTON", L"恢复内置素材", BS_PUSHBUTTON | WS_TABSTOP, 24, 380, 205, 32, RESET);
         add(L"BUTTON", L"许可与开源", BS_PUSHBUTTON | WS_TABSTOP, 245, 380, 205, 32, LICENSES);
-        add(L"STATIC", L"混合：普通键 Tap，空格 Touch，回车绝赞，\n退格 / Esc / Delete 正解音，Tab 烟花。\n关闭窗口后留在托盘；右键托盘可退出。", 0, 24, 430, 440, 72, 0);
-        status = add(L"STATIC", L"加载中…", 0, 24, 512, 440, 55, 0);
+        helpText = add(L"STATIC", L"混合模式：\nShift Ctrl Alt Win → 正解音\nEnter / 小键盘Enter → 绝赞大p\nEsc Tab CapsLock NumLock Insert Menu ScrollLock PauseBreak\n小键盘 + - * / . → 绝赞小p\nPrintScreen → 烟花\nSpace Backspace Delete Pageup Pagedown End Home → 带套tap\n0-9 小键盘0-9 F1-F12 上下左右 → touch\n其他按键 → tap\n非混合模式：所有按键使用所选音效。", 0, 24, 430, 440, 180, 0);
+        status = add(L"STATIC", L"加载中…", 0, 24, 622, 440, 55, 0);
         for (auto [id, value] : {std::pair{ENABLE, settings.keyboardEnabled}, {MOUSE, settings.mouseEnabled}, {FIREWORK, settings.fireworks}, {HDR, settings.hdr}, {ALL, settings.allDisplays}})
             CheckDlgButton(window, id, value ? BST_CHECKED : BST_UNCHECKED);
         SendMessage(combo, CB_SETCURSEL, settings.pack, 0);
@@ -143,14 +204,18 @@ class Application
     void scaleControls(UINT dpi)
     {
         HFONT previous = font;
+        HFONT previousHelp = helpFont;
         font = CreateFont(-MulDiv(16, dpi, 96), 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH, L"Microsoft YaHei UI");
+        helpFont = CreateFont(-MulDiv(13, dpi, 96), 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH, L"Microsoft YaHei UI");
         for (auto &[child, r] : controlLayout)
         {
             SetWindowPos(child, nullptr, MulDiv(r.left, dpi, 96), MulDiv(r.top, dpi, 96), MulDiv(r.right - r.left, dpi, 96), MulDiv(r.bottom - r.top, dpi, 96), SWP_NOZORDER | SWP_NOACTIVATE);
-            SendMessage(child, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
+            SendMessage(child, WM_SETFONT, reinterpret_cast<WPARAM>(child == helpText ? helpFont : font), TRUE);
         }
         if (previous)
             DeleteObject(previous);
+        if (previousHelp)
+            DeleteObject(previousHelp);
     }
     void selectAssets()
     {
@@ -187,7 +252,7 @@ class Application
             ++soundRequests[size_t(sound)];
         if (preview && !audio->available)
             audio->initialize();
-        bool accepted = audio->play(sound, settings.volume);
+        bool accepted = audio->play(sound, settings.volume / 100.f);
         if (!accepted)
             setStatus(L"音频设备不可用 · 烟花继续播放，请检查系统输出设备");
         else
@@ -325,6 +390,14 @@ class Application
         case WM_COMMAND:
         {
             int id = LOWORD(a);
+            if (id == VOLUME_VALUE && volumeValue)
+            {
+                UINT notification = HIWORD(a);
+                if (notification == EN_SETFOCUS)
+                    SendMessage(volumeValue, EM_SETSEL, 0, -1);
+                if (notification == EN_KILLFOCUS)
+                    commitVolumeInput();
+            }
             if (id == ENABLE || id == MOUSE)
             {
                 settings.keyboardEnabled = IsDlgButtonChecked(window, ENABLE) == BST_CHECKED;
@@ -373,14 +446,7 @@ class Application
             return 0;
         }
         case WM_HSCROLL:
-            settings.volume = float(SendDlgItemMessage(window, VOLUME, TBM_GETPOS, 0, 0)) / 100;
-            save();
-            if (settings.volume == 0)
-            {
-                stopEffects();
-                if (audio)
-                    audio->stop();
-            }
+            applyVolume(int(SendDlgItemMessage(window, VOLUME, TBM_GETPOS, 0, 0)));
             return 0;
         case WM_TIMER:
             if (a == 1)
@@ -495,13 +561,13 @@ public:
         wc.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
         wc.hIcon = LoadIcon(nullptr, IDI_APPLICATION);
         RegisterClass(&wc);
-        HWND w = CreateWindow(wc.lpszClassName, L"Thock maimai", WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX, CW_USEDEFAULT, CW_USEDEFAULT, 500, 590, nullptr, nullptr, h, this);
+        HWND w = CreateWindow(wc.lpszClassName, L"Thock maimai", WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX, CW_USEDEFAULT, CW_USEDEFAULT, 500, 700, nullptr, nullptr, h, this);
         if (!w)
             throw std::runtime_error("Settings window failed");
         controls();
         UINT dpi = GetDpiForWindow(window);
         scaleControls(dpi);
-        RECT desired{0, 0, MulDiv(480, dpi, 96), MulDiv(590, dpi, 96)};
+        RECT desired{0, 0, MulDiv(480, dpi, 96), MulDiv(700, dpi, 96)};
         AdjustWindowRectExForDpi(&desired, DWORD(GetWindowLongPtr(window, GWL_STYLE)), FALSE, 0, dpi);
         SetWindowPos(window, nullptr, 0, 0, desired.right - desired.left, desired.bottom - desired.top, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
         tray.cbSize = sizeof(tray);
@@ -539,12 +605,16 @@ public:
     {
         if (font)
             DeleteObject(font);
+        if (helpFont)
+            DeleteObject(helpFont);
     }
     int run()
     {
         MSG message{};
         while (GetMessage(&message, nullptr, 0, 0) > 0)
         {
+            if (handleVolumeKeyMessage(message))
+                continue;
             if (!IsDialogMessage(window, &message))
             {
                 TranslateMessage(&message);
@@ -575,6 +645,8 @@ void Application::integrationCheck(const fs::path &output)
             {
                 if (m.message == WM_QUIT)
                     break;
+                if (handleVolumeKeyMessage(m))
+                    continue;
                 if (!IsDialogMessage(window, &m))
                 {
                     TranslateMessage(&m);
@@ -610,10 +682,30 @@ void Application::integrationCheck(const fs::path &output)
     {SendDlgItemMessage(window,PACK,CB_SETCURSEL,index,0);SendMessage(window,WM_COMMAND,MAKEWPARAM(PACK,CBN_SELCHANGE),0); };
     auto volume = [&](int value)
     {SendDlgItemMessage(window,VOLUME,TBM_SETPOS,TRUE,value);SendMessage(window,WM_HSCROLL,0,0); };
+    auto commitVolume = [&]()
+    {SendMessage(window,WM_COMMAND,MAKEWPARAM(VOLUME_VALUE,EN_KILLFOCUS),reinterpret_cast<LPARAM>(volumeValue)); };
     check("resourcesLoaded", ready && sim.emitters.size() == 6 && audio->waves.size() == 7);
     check("defaultHDROff", IsDlgButtonChecked(window, HDR) == BST_UNCHECKED);
     check("soundModeChoices", SendDlgItemMessage(window, PACK, CB_GETCOUNT, 0, 0) == 8);
     check("noExternalAssetPath", settings.assetPath.empty());
+    volume(25);
+    check("volumeSliderUpdatesInput", text(volumeValue) == L"25");
+    SendMessage(volumeSlider, WM_MOUSEWHEEL, MAKEWPARAM(0, WHEEL_DELTA), 0);
+    check("volumeWheelUpIncreases", settings.volume == 26 && text(volumeValue) == L"26");
+    SendMessage(volumeSlider, WM_MOUSEWHEEL, MAKEWPARAM(0, WORD(-WHEEL_DELTA)), 0);
+    check("volumeWheelDownDecreases", settings.volume == 25 && text(volumeValue) == L"25");
+    SetWindowText(volumeValue, L"1");
+    SetWindowText(volumeValue, L"12");
+    check("volumeInputWaitsForFocusLoss", settings.volume == 25 && text(volumeValue) == L"12");
+    SetFocus(volumeValue);
+    PostMessage(volumeValue, WM_KEYDOWN, VK_RETURN, 0);
+    pump(.02);
+    check("volumeInputCommitsOnEnterAndBlurs", settings.volume == 12 && SendDlgItemMessage(window, VOLUME, TBM_GETPOS, 0, 0) == 12 && GetFocus() != volumeValue);
+    SetWindowText(volumeValue, L"150");
+    check("volumeInputDefersClamping", settings.volume == 12 && text(volumeValue) == L"150");
+    commitVolume();
+    check("volumeInputClampsMaximum", settings.volume == 100 && text(volumeValue) == L"100");
+    volume(35);
     WNDCLASS wc{};
     wc.hInstance = instance;
     wc.lpfnWndProc = DefWindowProc;
@@ -729,11 +821,15 @@ void Application::integrationCheck(const fs::path &output)
     check("masterSwitchStopsBoth", fireworkCount == before && soundRequests[size_t(Sound::Firework)] == requests);
     toggle(ENABLE, true);
     volume(0);
+    check("volumeSliderUpdatesInput", text(volumeValue) == L"0");
     before = fireworkCount;
     requests = soundRequests[size_t(Sound::Firework)];
     trigger(Sound::Firework);
     pump(.05);
     check("zeroVolumeStopsBoth", fireworkCount == before && soundRequests[size_t(Sound::Firework)] == requests);
+    SetWindowText(volumeValue, L"42");
+    commitVolume();
+    check("volumeInputUpdatesSlider", settings.volume == 42 && SendDlgItemMessage(window, VOLUME, TBM_GETPOS, 0, 0) == 42);
     volume(35);
     firework();
     pump(2.1);
@@ -753,7 +849,7 @@ void Application::integrationCheck(const fs::path &output)
     }
     check("rapidBurstBound", sim.bursts.size() <= 6);
     check("audioVoiceBound", audio->activeVoices() <= 32);
-    check("settingsRoundTrip", Settings::parse(Json::parse(readText(config))).volume == .35f);
+    check("settingsRoundTrip", Settings::parse(Json::parse(readText(config))).volume == 35);
     check("noApplicationError", lastFailure.empty());
     report["rawInputEvents"] = inputEvents;
     report["fireworksTriggered"] = fireworkCount;
