@@ -165,9 +165,10 @@ struct Settings
 {
     bool keyboardEnabled = true, mouseEnabled = true, fireworks = false, hdr = false, allDisplays = false, randomPosition = false;
     int pack = 0;
-    int volume = 10;
+    int keyboardVolume = 10;
+    int mouseVolume = 10;
     std::string assetPath;
-    Json json() const { return {{"keyboardenabled", keyboardEnabled}, {"mouseEnabled", mouseEnabled}, {"fireworks", fireworks}, {"hdr", hdr}, {"allDisplays", allDisplays}, {"randomPosition", randomPosition}, {"pack", pack}, {"volume", volume}, {"assetPath", assetPath}}; }
+    Json json() const { return {{"keyboardenabled", keyboardEnabled}, {"mouseEnabled", mouseEnabled}, {"fireworks", fireworks}, {"hdr", hdr}, {"allDisplays", allDisplays}, {"randomPosition", randomPosition}, {"pack", pack}, {"keyboardvolume", keyboardVolume}, {"mousevolume", mouseVolume}, {"assetPath", assetPath}}; }
     static Settings parse(const Json &j)
     {
         Settings s;
@@ -178,12 +179,19 @@ struct Settings
         s.allDisplays = j.value("allDisplays", false);
         s.randomPosition = j.value("randomPosition", false);
         s.pack = std::clamp(j.value("pack", 0), 0, 7);
-        if (j.contains("volume"))
-        {
-            const auto &value = j.at("volume");
-            s.volume = value.is_number_float() ? int(std::lround(value.get<double>() * 100)) : value.get<int>();
-        }
-        s.volume = std::clamp(s.volume, 0, 100);
+        auto readVolume = [](const Json &value) {
+            return value.is_number_float() ? int(std::lround(value.get<double>() * 100)) : value.get<int>();
+        };
+        if (j.contains("keyboardvolume"))
+            s.keyboardVolume = readVolume(j.at("keyboardvolume"));
+        else if (j.contains("volume"))
+            s.keyboardVolume = readVolume(j.at("volume"));
+        if (j.contains("mousevolume"))
+            s.mouseVolume = readVolume(j.at("mousevolume"));
+        else if (j.contains("volume"))
+            s.mouseVolume = readVolume(j.at("volume"));
+        s.keyboardVolume = std::clamp(s.keyboardVolume, 0, 100);
+        s.mouseVolume = std::clamp(s.mouseVolume, 0, 100);
         s.assetPath = j.value("assetPath", std::string{});
         return s;
     }

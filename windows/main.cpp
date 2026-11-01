@@ -6,7 +6,7 @@
 #include <chrono>
 #include <iostream>
 static constexpr UINT TRAY = WM_APP + 1;
-static constexpr int ENABLE = 101, FIREWORK = 102, HDR = 103, ALL = 104, PACK = 105, VOLUME = 106, PREVIEW = 107, IMPORT = 108, QUIT = 109, RESET = 110, LICENSES = 111, MOUSE = 112, VOLUME_VALUE = 113, RANDOM_POSITION = 114;
+static constexpr int ENABLE = 101, FIREWORK = 102, HDR = 103, ALL = 104, PACK = 105, KEYBOARD_VOLUME = 106, PREVIEW = 107, IMPORT = 108, QUIT = 109, RESET = 110, LICENSES = 111, MOUSE = 112, KEYBOARD_VOLUME_VALUE = 113, RANDOM_POSITION = 114, MOUSE_VOLUME = 115, MOUSE_VOLUME_VALUE = 116, SYNC_KEYBOARD_VOLUME = 117, SYNC_MOUSE_VOLUME = 118;
 static double clockSeconds() { return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
 static std::wstring wide(const std::string &s)
 {
@@ -43,9 +43,11 @@ class Application
     HFONT helpFont = nullptr;
     HWND status = nullptr;
     HWND helpText = nullptr;
-    HWND volumeSlider = nullptr;
-    HWND volumeValue = nullptr;
-    int volumeWheelRemainder = 0;
+    HWND keyboardVolumeSlider = nullptr;
+    HWND mouseVolumeSlider = nullptr;
+    HWND keyboardVolumeValue = nullptr;
+    HWND mouseVolumeValue = nullptr;
+    std::array<int, 2> volumeWheelRemainder{};
     double idleCleanup = 0;
     bool testing = false;
     size_t inputEvents = 0, fireworkCount = 0, drawnFrames = 0;
@@ -74,11 +76,11 @@ class Application
             }
         return DefWindowProc(w, m, a, b);
     }
-    static LRESULT CALLBACK volumeSliderProcedure(HWND w, UINT m, WPARAM a, LPARAM b, UINT_PTR, DWORD_PTR ref)
+    static LRESULT CALLBACK volumeSliderProcedure(HWND w, UINT m, WPARAM a, LPARAM b, UINT_PTR id, DWORD_PTR ref)
     {
         if (m == WM_MOUSEWHEEL)
         {
-            reinterpret_cast<Application *>(ref)->scrollVolume(GET_WHEEL_DELTA_WPARAM(a));
+            reinterpret_cast<Application *>(ref)->scrollVolume(id == MOUSE_VOLUME, GET_WHEEL_DELTA_WPARAM(a));
             return 0;
         }
         return DefSubclassProc(w, m, a, b);
@@ -88,44 +90,46 @@ class Application
         if (status)
             SetWindowText(status, s.c_str());
     }
-    void applyVolume(int value, bool persist = true)
+    void applyVolume(bool mouse, int value, bool persist = true)
     {
-        settings.volume = std::clamp(value, 0, 100);
-        SetWindowText(volumeValue, std::to_wstring(settings.volume).c_str());
-        SendDlgItemMessage(window, VOLUME, TBM_SETPOS, TRUE, settings.volume);
+        int &level = mouse ? settings.mouseVolume : settings.keyboardVolume;
+        level = std::clamp(value, 0, 100);
+        HWND editor = mouse ? mouseVolumeValue : keyboardVolumeValue;
+        SetWindowText(editor, std::to_wstring(level).c_str());
+        SendDlgItemMessage(window, mouse ? MOUSE_VOLUME : KEYBOARD_VOLUME, TBM_SETPOS, TRUE, level);
         if (persist)
             save();
-        if (settings.volume == 0)
-        {
+        if (!mouse && settings.keyboardVolume == 0)
             stopEffects();
-            if (audio)
-                audio->stop();
-        }
+        if (settings.keyboardVolume == 0 && settings.mouseVolume == 0 && audio)
+            audio->stop();
     }
-    void scrollVolume(int delta)
+    void scrollVolume(bool mouse, int delta)
     {
-        volumeWheelRemainder += delta;
-        int steps = volumeWheelRemainder / WHEEL_DELTA;
-        volumeWheelRemainder %= WHEEL_DELTA;
+        int &remainder = volumeWheelRemainder[size_t(mouse)];
+        remainder += delta;
+        int steps = remainder / WHEEL_DELTA;
+        remainder %= WHEEL_DELTA;
         if (steps)
-            applyVolume(settings.volume + steps);
+            applyVolume(mouse, (mouse ? settings.mouseVolume : settings.keyboardVolume) + steps);
     }
-    void commitVolumeInput()
+    void commitVolumeInput(bool mouse)
     {
-        auto valueText = text(volumeValue);
+        HWND editor = mouse ? mouseVolumeValue : keyboardVolumeValue;
+        auto valueText = text(editor);
         if (valueText.empty() || !std::all_of(valueText.begin(), valueText.end(), [](wchar_t c) { return c >= L'0' && c <= L'9'; }))
         {
-            applyVolume(settings.volume, false);
+            applyVolume(mouse, mouse ? settings.mouseVolume : settings.keyboardVolume, false);
             return;
         }
         int value = 0;
         for (wchar_t c : valueText)
             value = std::min(100, value * 10 + int(c - L'0'));
-        applyVolume(value);
+        applyVolume(mouse, value);
     }
     bool handleVolumeKeyMessage(const MSG &message)
     {
-        if (message.hwnd == volumeValue && message.message == WM_KEYDOWN && message.wParam == VK_RETURN)
+        if ((message.hwnd == keyboardVolumeValue || message.hwnd == mouseVolumeValue) && message.message == WM_KEYDOWN && message.wParam == VK_RETURN)
         {
             if ((message.lParam & (1LL << 30)) == 0)
                 SetFocus(window);
@@ -186,18 +190,26 @@ class Application
         auto combo = add(WC_COMBOBOX, L"", CBS_DROPDOWNLIST | WS_TABSTOP, 130, 266, 310, 250, PACK);
         for (auto label : {L"混合", L"正解音", L"Tap", L"Touch", L"BreakCritical", L"烟花", L"TapEx", L"BreakPerfect"})
             SendMessage(combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(label));
-        add(L"STATIC", L"音量", 0, 24, 318, 100, 24, 0);
-        volumeValue = add(L"EDIT", std::to_wstring(settings.volume).c_str(), ES_NUMBER | ES_AUTOHSCROLL | ES_CENTER | WS_TABSTOP, 78, 318, 40, 24, VOLUME_VALUE);
-        volumeSlider = add(TRACKBAR_CLASS, L"", TBS_HORZ | WS_TABSTOP, 124, 312, 320, 36, VOLUME);
-        SetWindowSubclass(volumeSlider, volumeSliderProcedure, VOLUME, reinterpret_cast<DWORD_PTR>(this));
-        SendMessage(volumeSlider, TBM_SETRANGE, TRUE, MAKELPARAM(0, 100));
-        SendMessage(volumeSlider, TBM_SETPOS, TRUE, settings.volume);
-        add(L"BUTTON", L"预览烟花与音效", BS_PUSHBUTTON | WS_TABSTOP, 24, 364, 205, 38, PREVIEW);
-        add(L"BUTTON", L"选择素材文件夹…", BS_PUSHBUTTON | WS_TABSTOP, 245, 364, 205, 38, IMPORT);
-        add(L"BUTTON", L"恢复内置素材", BS_PUSHBUTTON | WS_TABSTOP, 24, 416, 205, 32, RESET);
-        add(L"BUTTON", L"许可与开源", BS_PUSHBUTTON | WS_TABSTOP, 245, 416, 205, 32, LICENSES);
-        helpText = add(L"STATIC", L"混合模式：\nShift Ctrl Alt Win → 正解音\nEnter / 小键盘Enter → 绝赞大p\nEsc Tab CapsLock NumLock Insert Menu → 绝赞小p\nScrollLock PauseBreak 小键盘+-*/. → 绝赞小p\nPrintScreen → 烟花\nSpace Backspace Delete Pageup Pagedown End Home → 带套tap\n0-9 小键盘0-9 F1-F12 上下左右 → touch\n鼠标左键 → touch    鼠标右键 → tap\n鼠标中键 → 绝赞小p    鼠标侧键 → 正解音\n其他按键 → tap\n非混合模式：所有按键使用所选音效。", 0, 24, 458, 440, 210, 0);
-        status = add(L"STATIC", L"加载中…", 0, 24, 681, 440, 55, 0);
+        add(L"STATIC", L"键盘音量", 0, 24, 318, 72, 24, 0);
+        keyboardVolumeValue = add(L"EDIT", std::to_wstring(settings.keyboardVolume).c_str(), ES_NUMBER | ES_AUTOHSCROLL | ES_CENTER | WS_TABSTOP, 100, 318, 40, 24, KEYBOARD_VOLUME_VALUE);
+        add(L"BUTTON", L"同步", BS_PUSHBUTTON | WS_TABSTOP, 146, 316, 50, 26, SYNC_KEYBOARD_VOLUME);
+        keyboardVolumeSlider = add(TRACKBAR_CLASS, L"", TBS_HORZ | WS_TABSTOP, 202, 312, 242, 36, KEYBOARD_VOLUME);
+        SetWindowSubclass(keyboardVolumeSlider, volumeSliderProcedure, KEYBOARD_VOLUME, reinterpret_cast<DWORD_PTR>(this));
+        SendMessage(keyboardVolumeSlider, TBM_SETRANGE, TRUE, MAKELPARAM(0, 100));
+        SendMessage(keyboardVolumeSlider, TBM_SETPOS, TRUE, settings.keyboardVolume);
+        add(L"STATIC", L"鼠标音量", 0, 24, 354, 72, 24, 0);
+        mouseVolumeValue = add(L"EDIT", std::to_wstring(settings.mouseVolume).c_str(), ES_NUMBER | ES_AUTOHSCROLL | ES_CENTER | WS_TABSTOP, 100, 354, 40, 24, MOUSE_VOLUME_VALUE);
+        add(L"BUTTON", L"同步", BS_PUSHBUTTON | WS_TABSTOP, 146, 352, 50, 26, SYNC_MOUSE_VOLUME);
+        mouseVolumeSlider = add(TRACKBAR_CLASS, L"", TBS_HORZ | WS_TABSTOP, 202, 348, 242, 36, MOUSE_VOLUME);
+        SetWindowSubclass(mouseVolumeSlider, volumeSliderProcedure, MOUSE_VOLUME, reinterpret_cast<DWORD_PTR>(this));
+        SendMessage(mouseVolumeSlider, TBM_SETRANGE, TRUE, MAKELPARAM(0, 100));
+        SendMessage(mouseVolumeSlider, TBM_SETPOS, TRUE, settings.mouseVolume);
+        add(L"BUTTON", L"预览烟花与音效", BS_PUSHBUTTON | WS_TABSTOP, 24, 394, 205, 38, PREVIEW);
+        add(L"BUTTON", L"选择素材文件夹…", BS_PUSHBUTTON | WS_TABSTOP, 245, 394, 205, 38, IMPORT);
+        add(L"BUTTON", L"恢复内置素材", BS_PUSHBUTTON | WS_TABSTOP, 24, 444, 205, 32, RESET);
+        add(L"BUTTON", L"许可与开源", BS_PUSHBUTTON | WS_TABSTOP, 245, 444, 205, 32, LICENSES);
+        helpText = add(L"STATIC", L"混合模式：\nShift Ctrl Alt Win → 正解音\nEnter / 小键盘Enter → 绝赞大p\nEsc Tab CapsLock NumLock Insert Menu → 绝赞小p\nScrollLock PauseBreak 小键盘+-*/. → 绝赞小p\nPrintScreen → 烟花\nSpace Backspace Delete Pageup Pagedown End Home → 带套tap\n0-9 小键盘0-9 F1-F12 上下左右 → touch\n鼠标左键 → touch    鼠标右键 → tap\n鼠标中键 → 绝赞小p    鼠标侧键 → 正解音\n其他按键 → tap\n非混合模式：所有按键使用所选音效。", 0, 24, 486, 440, 210, 0);
+        status = add(L"STATIC", L"加载中…", 0, 24, 708, 440, 55, 0);
         for (auto [id, value] : {std::pair{ENABLE, settings.keyboardEnabled}, {MOUSE, settings.mouseEnabled}, {FIREWORK, settings.fireworks}, {HDR, settings.hdr}, {ALL, settings.allDisplays}, {RANDOM_POSITION, settings.randomPosition}})
             CheckDlgButton(window, id, value ? BST_CHECKED : BST_UNCHECKED);
         SendMessage(combo, CB_SETCURSEL, settings.pack, 0);
@@ -243,7 +255,8 @@ class Application
         bool inputEnabled = mouseInput ? settings.mouseEnabled : settings.keyboardEnabled;
         if (!ready || locked || (!preview && !inputEnabled))
             return;
-        if (settings.volume <= 0)
+        int volume = mouseInput ? settings.mouseVolume : settings.keyboardVolume;
+        if (volume <= 0)
         {
             if (preview)
                 setStatus(L"音量为 0，请调高音量后预览");
@@ -253,7 +266,7 @@ class Application
             ++soundRequests[size_t(sound)];
         if (preview && !audio->available)
             audio->initialize();
-        bool accepted = audio->play(sound, settings.volume / 100.f);
+        bool accepted = audio->play(sound, volume / 100.f);
         if (!accepted)
             setStatus(L"音频设备不可用 · 烟花继续播放，请检查系统输出设备");
         else
@@ -392,14 +405,20 @@ class Application
         case WM_COMMAND:
         {
             int id = LOWORD(a);
-            if (id == VOLUME_VALUE && volumeValue)
+            if ((id == KEYBOARD_VOLUME_VALUE && keyboardVolumeValue) || (id == MOUSE_VOLUME_VALUE && mouseVolumeValue))
             {
+                bool mouse = id == MOUSE_VOLUME_VALUE;
+                HWND editor = mouse ? mouseVolumeValue : keyboardVolumeValue;
                 UINT notification = HIWORD(a);
                 if (notification == EN_SETFOCUS)
-                    SendMessage(volumeValue, EM_SETSEL, 0, -1);
+                    SendMessage(editor, EM_SETSEL, 0, -1);
                 if (notification == EN_KILLFOCUS)
-                    commitVolumeInput();
+                    commitVolumeInput(mouse);
             }
+            if (id == SYNC_KEYBOARD_VOLUME)
+                applyVolume(true, settings.keyboardVolume);
+            if (id == SYNC_MOUSE_VOLUME)
+                applyVolume(false, settings.mouseVolume);
             if (id == ENABLE || id == MOUSE)
             {
                 settings.keyboardEnabled = IsDlgButtonChecked(window, ENABLE) == BST_CHECKED;
@@ -453,8 +472,14 @@ class Application
             return 0;
         }
         case WM_HSCROLL:
-            applyVolume(int(SendDlgItemMessage(window, VOLUME, TBM_GETPOS, 0, 0)));
+        {
+            HWND slider = reinterpret_cast<HWND>(b);
+            if (slider == keyboardVolumeSlider)
+                applyVolume(false, int(SendMessage(slider, TBM_GETPOS, 0, 0)));
+            else if (slider == mouseVolumeSlider)
+                applyVolume(true, int(SendMessage(slider, TBM_GETPOS, 0, 0)));
             return 0;
+        }
         case WM_TIMER:
             if (a == 1)
             {
@@ -687,32 +712,60 @@ void Application::integrationCheck(const fs::path &output)
     {CheckDlgButton(window,id,on?BST_CHECKED:BST_UNCHECKED);SendMessage(window,WM_COMMAND,MAKEWPARAM(id,BN_CLICKED),0); };
     auto pack = [&](int index)
     {SendDlgItemMessage(window,PACK,CB_SETCURSEL,index,0);SendMessage(window,WM_COMMAND,MAKEWPARAM(PACK,CBN_SELCHANGE),0); };
-    auto volume = [&](int value)
-    {SendDlgItemMessage(window,VOLUME,TBM_SETPOS,TRUE,value);SendMessage(window,WM_HSCROLL,0,0); };
-    auto commitVolume = [&]()
-    {SendMessage(window,WM_COMMAND,MAKEWPARAM(VOLUME_VALUE,EN_KILLFOCUS),reinterpret_cast<LPARAM>(volumeValue)); };
+    auto volume = [&](bool mouse, int value)
+    {
+        HWND slider = mouse ? mouseVolumeSlider : keyboardVolumeSlider;
+        SendMessage(slider, TBM_SETPOS, TRUE, value);
+        SendMessage(window, WM_HSCROLL, 0, reinterpret_cast<LPARAM>(slider));
+    };
+    auto commitVolume = [&](bool mouse)
+    {
+        HWND editor = mouse ? mouseVolumeValue : keyboardVolumeValue;
+        UINT id = mouse ? MOUSE_VOLUME_VALUE : KEYBOARD_VOLUME_VALUE;
+        SendMessage(window, WM_COMMAND, MAKEWPARAM(id, EN_KILLFOCUS), reinterpret_cast<LPARAM>(editor));
+    };
+    auto syncVolume = [&](bool toMouse)
+    {
+        SendMessage(window, WM_COMMAND, MAKEWPARAM(toMouse ? SYNC_KEYBOARD_VOLUME : SYNC_MOUSE_VOLUME, BN_CLICKED), 0);
+    };
     check("resourcesLoaded", ready && sim.emitters.size() == 6 && audio->waves.size() == 7);
     check("defaultHDROff", IsDlgButtonChecked(window, HDR) == BST_UNCHECKED);
     check("soundModeChoices", SendDlgItemMessage(window, PACK, CB_GETCOUNT, 0, 0) == 8);
     check("noExternalAssetPath", settings.assetPath.empty());
-    volume(25);
-    check("volumeSliderUpdatesInput", text(volumeValue) == L"25");
-    SendMessage(volumeSlider, WM_MOUSEWHEEL, MAKEWPARAM(0, WHEEL_DELTA), 0);
-    check("volumeWheelUpIncreases", settings.volume == 26 && text(volumeValue) == L"26");
-    SendMessage(volumeSlider, WM_MOUSEWHEEL, MAKEWPARAM(0, WORD(-WHEEL_DELTA)), 0);
-    check("volumeWheelDownDecreases", settings.volume == 25 && text(volumeValue) == L"25");
-    SetWindowText(volumeValue, L"1");
-    SetWindowText(volumeValue, L"12");
-    check("volumeInputWaitsForFocusLoss", settings.volume == 25 && text(volumeValue) == L"12");
-    SetFocus(volumeValue);
-    PostMessage(volumeValue, WM_KEYDOWN, VK_RETURN, 0);
+    volume(false, 25);
+    check("keyboardVolumeSliderUpdatesInput", text(keyboardVolumeValue) == L"25");
+    SendMessage(keyboardVolumeSlider, WM_MOUSEWHEEL, MAKEWPARAM(0, WHEEL_DELTA), 0);
+    check("keyboardVolumeWheelUpIncreases", settings.keyboardVolume == 26 && text(keyboardVolumeValue) == L"26");
+    SendMessage(keyboardVolumeSlider, WM_MOUSEWHEEL, MAKEWPARAM(0, WORD(-WHEEL_DELTA)), 0);
+    check("keyboardVolumeWheelDownDecreases", settings.keyboardVolume == 25 && text(keyboardVolumeValue) == L"25");
+    SetWindowText(keyboardVolumeValue, L"1");
+    SetWindowText(keyboardVolumeValue, L"12");
+    check("keyboardVolumeInputWaitsForFocusLoss", settings.keyboardVolume == 25 && text(keyboardVolumeValue) == L"12");
+    SetFocus(keyboardVolumeValue);
+    PostMessage(keyboardVolumeValue, WM_KEYDOWN, VK_RETURN, 0);
     pump(.02);
-    check("volumeInputCommitsOnEnterAndBlurs", settings.volume == 12 && SendDlgItemMessage(window, VOLUME, TBM_GETPOS, 0, 0) == 12 && GetFocus() != volumeValue);
-    SetWindowText(volumeValue, L"150");
-    check("volumeInputDefersClamping", settings.volume == 12 && text(volumeValue) == L"150");
-    commitVolume();
-    check("volumeInputClampsMaximum", settings.volume == 100 && text(volumeValue) == L"100");
-    volume(35);
+    check("keyboardVolumeInputCommitsOnEnterAndBlurs", settings.keyboardVolume == 12 && SendMessage(keyboardVolumeSlider, TBM_GETPOS, 0, 0) == 12 && GetFocus() != keyboardVolumeValue);
+    SetWindowText(keyboardVolumeValue, L"150");
+    check("keyboardVolumeInputDefersClamping", settings.keyboardVolume == 12 && text(keyboardVolumeValue) == L"150");
+    commitVolume(false);
+    check("keyboardVolumeInputClampsMaximum", settings.keyboardVolume == 100 && text(keyboardVolumeValue) == L"100");
+    volume(false, 35);
+    volume(true, 65);
+    check("mouseVolumeSliderUpdatesInput", text(mouseVolumeValue) == L"65");
+    SendMessage(mouseVolumeSlider, WM_MOUSEWHEEL, MAKEWPARAM(0, WHEEL_DELTA), 0);
+    check("mouseVolumeWheelUpIncreases", settings.mouseVolume == 66 && text(mouseVolumeValue) == L"66");
+    SendMessage(mouseVolumeSlider, WM_MOUSEWHEEL, MAKEWPARAM(0, WORD(-WHEEL_DELTA)), 0);
+    check("mouseVolumeWheelDownDecreases", settings.mouseVolume == 65 && text(mouseVolumeValue) == L"65");
+    SetWindowText(mouseVolumeValue, L"12");
+    commitVolume(true);
+    check("mouseVolumeInputUpdatesSlider", settings.mouseVolume == 12 && SendMessage(mouseVolumeSlider, TBM_GETPOS, 0, 0) == 12 && settings.keyboardVolume == 35);
+    syncVolume(true);
+    check("keyboardSyncCopiesToMouse", settings.keyboardVolume == 35 && settings.mouseVolume == 35 && text(mouseVolumeValue) == L"35" && SendMessage(mouseVolumeSlider, TBM_GETPOS, 0, 0) == 35);
+    volume(true, 70);
+    syncVolume(false);
+    check("mouseSyncCopiesToKeyboard", settings.mouseVolume == 70 && settings.keyboardVolume == 70 && text(keyboardVolumeValue) == L"70" && SendMessage(keyboardVolumeSlider, TBM_GETPOS, 0, 0) == 70);
+    volume(false, 35);
+    volume(true, 35);
     WNDCLASS wc{};
     wc.hInstance = instance;
     wc.lpfnWndProc = DefWindowProc;
@@ -757,6 +810,14 @@ void Application::integrationCheck(const fs::path &output)
     checkMouse("mouseMiddle", MouseButton::Middle, MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP);
     checkMouse("mouseBack", MouseButton::Back, MOUSEEVENTF_XDOWN, MOUSEEVENTF_XUP, XBUTTON1);
     checkMouse("mouseForward", MouseButton::Forward, MOUSEEVENTF_XDOWN, MOUSEEVENTF_XUP, XBUTTON2);
+    volume(true, 0);
+    size_t mouseBefore = soundRequests[size_t(Sound::Touch)];
+    mouseClick(MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP);
+    check("zeroMouseVolumeStopsMouse", soundRequests[size_t(Sound::Touch)] == mouseBefore);
+    size_t keyboardBefore = soundRequests[size_t(Sound::Tap)];
+    tap('A');
+    check("keyboardWorksWithMouseVolumeZero", soundRequests[size_t(Sound::Tap)] == keyboardBefore + 1);
+    volume(true, 35);
     for (int index = 0; index <= 7; ++index)
     {
         pack(index);
@@ -840,17 +901,17 @@ void Application::integrationCheck(const fs::path &output)
     pump(.05);
     check("masterSwitchStopsBoth", fireworkCount == before && soundRequests[size_t(Sound::Firework)] == requests);
     toggle(ENABLE, true);
-    volume(0);
-    check("volumeSliderUpdatesInput", text(volumeValue) == L"0");
+    volume(false, 0);
+    check("keyboardVolumeSliderUpdatesInputToZero", text(keyboardVolumeValue) == L"0");
     before = fireworkCount;
     requests = soundRequests[size_t(Sound::Firework)];
     trigger(Sound::Firework);
     pump(.05);
-    check("zeroVolumeStopsBoth", fireworkCount == before && soundRequests[size_t(Sound::Firework)] == requests);
-    SetWindowText(volumeValue, L"42");
-    commitVolume();
-    check("volumeInputUpdatesSlider", settings.volume == 42 && SendDlgItemMessage(window, VOLUME, TBM_GETPOS, 0, 0) == 42);
-    volume(35);
+    check("zeroKeyboardVolumeStopsKeyboard", fireworkCount == before && soundRequests[size_t(Sound::Firework)] == requests);
+    SetWindowText(keyboardVolumeValue, L"42");
+    commitVolume(false);
+    check("keyboardVolumeInputUpdatesSlider", settings.keyboardVolume == 42 && SendMessage(keyboardVolumeSlider, TBM_GETPOS, 0, 0) == 42);
+    volume(false, 35);
     firework();
     pump(2.1);
     check("idleClearsAllOverlayWindows", overlays.empty() && sim.bursts.empty());
@@ -869,7 +930,8 @@ void Application::integrationCheck(const fs::path &output)
     }
     check("rapidBurstBound", sim.bursts.size() <= 6);
     check("audioVoiceBound", audio->activeVoices() <= 32);
-    check("settingsRoundTrip", Settings::parse(Json::parse(readText(config))).volume == 35);
+    auto savedSettings = Settings::parse(Json::parse(readText(config)));
+    check("splitVolumesRoundTrip", savedSettings.keyboardVolume == 35 && savedSettings.mouseVolume == 35);
     check("noApplicationError", lastFailure.empty());
     report["rawInputEvents"] = inputEvents;
     report["fireworksTriggered"] = fireworkCount;
