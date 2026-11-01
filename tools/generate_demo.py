@@ -50,7 +50,7 @@ def generate(root):
                 life=constant(1.3), angularVelocity=None,
                 sizeCurve=dict(mode=1, max=1, min=1, hi=[[0, .1, 3, 3], [.3, .7, 1, 1], [1, 1, 0, 0]], lo=[]))
     (root/'maimai-fireworks.json').write_text(json.dumps([ring, star], indent=2), encoding='utf-8')
-    names = ['answer', 'tap', 'touch', 'break-perfect', 'break-critical', 'touch-firework']
+    names = ['answer', 'tap', 'touch', 'break-perfect', 'break-critical', 'firework']
     rng = random.Random(2026)
     for i, name in enumerate(names):
         length = .12 + i*.055

@@ -102,7 +102,7 @@ enum class MouseButton
     Back,
     Forward
 };
-inline const std::array<const char *, 7> soundFiles = {"answer.wav", "tap.wav", "touch.wav", "break-perfect.wav", "break-critical.wav", "touch-firework.wav", "tap-ex.wav"};
+inline const std::array<const char *, 7> soundFiles = {"answer.wav", "tap.wav", "touch.wav", "break-perfect.wav", "break-critical.wav", "firework.wav", "tap-ex.wav"};
 // Pack 0 = mixed; 1..7 = answer, tap, touch, critical break, fireworks, tap-ex, perfect break.
 inline Sound route(unsigned key, int pack)
 {
