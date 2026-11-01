@@ -305,8 +305,9 @@ class Application
         HMENU menu = CreatePopupMenu();
         AppendMenu(menu, MF_STRING, 1, L"打开设置");
         AppendMenu(menu, MF_STRING | (settings.keyboardEnabled ? MF_CHECKED : 0), 2, L"启用键盘音效");
+        AppendMenu(menu, MF_STRING | (settings.mouseEnabled ? MF_CHECKED : 0), 3, L"启用鼠标音效");
         AppendMenu(menu, MF_SEPARATOR, 0, nullptr);
-        AppendMenu(menu, MF_STRING, 3, L"退出");
+        AppendMenu(menu, MF_STRING, 4, L"退出");
         POINT p{};
         GetCursorPos(&p);
         SetForegroundWindow(window);
@@ -330,6 +331,14 @@ class Application
             save();
         }
         if (id == 3)
+        {
+            settings.mouseEnabled = !settings.mouseEnabled;
+            CheckDlgButton(window, MOUSE, settings.mouseEnabled ? BST_CHECKED : BST_UNCHECKED);
+            if (!settings.keyboardEnabled && !settings.mouseEnabled && audio)
+                audio->stop();
+            save();
+        }
+        if (id == 4)
             DestroyWindow(window);
     }
     LRESULT message(UINT m, WPARAM a, LPARAM b)
