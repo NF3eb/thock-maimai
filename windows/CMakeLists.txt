@@ -19,7 +19,7 @@ set(EMBED_COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../tools/
 execute_process(COMMAND ${EMBED_COMMAND} COMMAND_ERROR_IS_FATAL ANY)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${ASSET_INPUTS}
   "${CMAKE_CURRENT_SOURCE_DIR}/effect.hlsl" "${CMAKE_CURRENT_SOURCE_DIR}/../tools/embed_resources.py")
-add_executable(ThockMaimai WIN32 main.cpp renderer.cpp app.manifest "${EMBEDDED_DIR}/embedded.rc")
+add_executable(ThockMaimai WIN32 main.cpp renderer.cpp app.manifest app.rc app.ico "${EMBEDDED_DIR}/embedded.rc")
 add_custom_target(ThockEmbedAssets ALL COMMAND ${EMBED_COMMAND} COMMENT "Embedding current Windows assets" VERBATIM)
 add_dependencies(ThockMaimai ThockEmbedAssets)
 target_include_directories(ThockMaimai PRIVATE "${EMBEDDED_DIR}")

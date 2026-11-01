@@ -1,4 +1,5 @@
 #include "audio.h"
+#include "resource.h"
 #include <commctrl.h>
 #include <shellapi.h>
 #include <shlobj.h>
@@ -591,7 +592,7 @@ public:
         wc.lpszClassName = L"FireflyMaimaiSettings";
         wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
         wc.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
-        wc.hIcon = LoadIcon(nullptr, IDI_APPLICATION);
+        wc.hIcon = LoadIcon(h, MAKEINTRESOURCE(IDI_APP_ICON));
         RegisterClass(&wc);
         HWND w = CreateWindow(wc.lpszClassName, L"Thock maimai", WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX, CW_USEDEFAULT, CW_USEDEFAULT, 500, 800, nullptr, nullptr, h, this);
         if (!w)
