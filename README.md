@@ -92,3 +92,28 @@ CI 会把 EXE 单独复制到带空格和中文的空目录，再运行上述检
 游戏素材由项目维护者确认已取得公开再分发授权后纳入仓库和 Release。**游戏图片、音频、参数及由原游戏转换的着色器不重新授予 MIT 许可**，仍保留各自原权利归属，详见素材目录的 `ASSET-LICENSE.txt`。本项目与 SEGA 无关联，不代表官方认可。HDR 为本程序新增高光增强，并非原游戏素材自带 HDR。
 
 技术参考：[DirectComposition](https://learn.microsoft.com/en-us/windows/win32/api/dxgi1_2/nf-dxgi1_2-idxgifactory2-createswapchainforcomposition)、[Windows Raw Input](https://learn.microsoft.com/en-us/windows/win32/inputdev/using-raw-input)。
+
+# 更新日志
+## v1.1.0
+- fix: 系统托盘中的程序的右键浮窗中仅有“启用键盘音效”，现添加“启用鼠标音效”，用于控制是否启用鼠标点击音效。
+- feat: 将主分支的“随机烟花位置”特征整合到此分支中。
+- feat: 将原先的音量滑块一分为二，分别控制键盘音效和鼠标点击音效的大小。
+- feat: 为两个音量添加了“同步”按钮，点击即可将此行的音量复制到另一行。
+- docs: 更新了`README.md`，添加了更新日志。
+- 为程序添加了图标。
+## v1.0.1
+- fix: 补全了缺失的TapEx音效。
+- 替换了大部分的音频源文件，并重新平衡了各个音频文件之间的音量。
+- 将原先的`touch-firework.wav`更名为`firework.wav`。
+## v1.0.0
+本分支fork自上游的[v1.1.1](https://github.com/wzk112/thock-maimai/tree/v1.1.1)。
+- fix: 修复了在部分情况下，按下部分按键会触发两次音效。
+- fix: 将已经存在但是未使用的BreakPerfect接入流程。
+- fix: 修复了在使用鼠标滚轮进行调节音量时，上滑滚轮会使音量减小而下滑滚轮会使音量增大。
+- feat: 鼠标点击也会产生音效。
+- feat: 更改了界面布局，并使音量数值可视化。
+- ci: 更改GitHub Actions配置文件，此fork分支不再维护macOS平台。
+- 修饰键（Ctrl，Shift，Alt，Win）现在也会产生声音。
+- 更改了大部分键位对应的音效。
+- 默认声音改为10%，默认关闭烟花视觉效果。
+- 配置文件中，将volume元素从小数变为整数。
