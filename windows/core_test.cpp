@@ -9,6 +9,9 @@ void check(bool value, const char *expression, int line)
 int main() {
     try {
     CHECK(!Settings{}.hdr); CHECK(!Settings::parse(Json::object()).hdr);
+    CHECK(!Settings{}.randomPosition);CHECK(!Settings::parse(Json::object()).randomPosition);
+    Settings randomSettings;randomSettings.randomPosition=true;
+    CHECK(Settings::parse(randomSettings.json()).randomPosition);
     CHECK(Settings{}.mouseEnabled);CHECK(Settings::parse(Json::object()).mouseEnabled);
     CHECK(!Settings::parse({{"mouseEnabled",false}}).mouseEnabled);
     CHECK(Settings{}.keyboardEnabled);CHECK(!Settings::parse({{"keyboardenabled",false}}).keyboardEnabled);
@@ -37,8 +40,16 @@ int main() {
     bool rejected=false;try{safeFile("assets","../secret");}catch(...){rejected=true;}CHECK(rejected);
     CHECK(safeFile("assets","star.png")==fs::path("assets")/"star.png");
     Simulation s; for(int i=0;i<30;++i)s.burst(i*.01);CHECK(s.bursts.size()==6);
+    auto center=std::array<double,2>{.5,.5};
+    CHECK(s.bursts.back().origin==center);
+    auto previous=s.bursts.back().origin;
+    for(int i=0;i<24;++i){s.burst(.31+i*.01,true);auto origin=s.bursts.back().origin;
+        CHECK(s.bursts[s.bursts.size()-2].origin==previous);
+        for(auto v:origin)CHECK(v>=.2&&v<=.8);
+        previous=origin;CHECK(s.bursts.size()<=6);}
+    s.burst(.6);CHECK(s.bursts.back().origin==center);
     s.expire(3);CHECK(s.bursts.empty());
-        std::cout<<"PASS: default HDR off, route table, limits, curve, safe paths, burst bound and expiry\n";
+        std::cout<<"PASS: default HDR off, route table, limits, curve, safe paths, burst bound, random origin and expiry\n";
     } catch (const std::exception &e) {
         std::cerr << e.what() << '\n';
         return 1;

@@ -6,7 +6,7 @@
 #include <chrono>
 #include <iostream>
 static constexpr UINT TRAY = WM_APP + 1;
-static constexpr int ENABLE = 101, FIREWORK = 102, HDR = 103, ALL = 104, PACK = 105, VOLUME = 106, PREVIEW = 107, IMPORT = 108, QUIT = 109, RESET = 110, LICENSES = 111, MOUSE = 112, VOLUME_VALUE = 113;
+static constexpr int ENABLE = 101, FIREWORK = 102, HDR = 103, ALL = 104, PACK = 105, VOLUME = 106, PREVIEW = 107, IMPORT = 108, QUIT = 109, RESET = 110, LICENSES = 111, MOUSE = 112, VOLUME_VALUE = 113, RANDOM_POSITION = 114;
 static double clockSeconds() { return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
 static std::wstring wide(const std::string &s)
 {
@@ -181,23 +181,24 @@ class Application
         add(L"BUTTON", L"启用烟花视觉效果", BS_AUTOCHECKBOX | WS_TABSTOP, 24, 158, 420, 26, FIREWORK);
         add(L"BUTTON", L"HDR高光", BS_AUTOCHECKBOX | WS_TABSTOP, 24, 190, 220, 26, HDR);
         add(L"BUTTON", L"所有显示屏", BS_AUTOCHECKBOX | WS_TABSTOP, 260, 190, 190, 26, ALL);
-        add(L"STATIC", L"音效模式", 0, 24, 236, 105, 24, 0);
-        auto combo = add(WC_COMBOBOX, L"", CBS_DROPDOWNLIST | WS_TABSTOP, 130, 230, 310, 250, PACK);
+        add(L"BUTTON", L"随机位置烟花", BS_AUTOCHECKBOX | WS_TABSTOP, 24, 222, 420, 26, RANDOM_POSITION);
+        add(L"STATIC", L"音效模式", 0, 24, 272, 105, 24, 0);
+        auto combo = add(WC_COMBOBOX, L"", CBS_DROPDOWNLIST | WS_TABSTOP, 130, 266, 310, 250, PACK);
         for (auto label : {L"混合", L"正解音", L"Tap", L"Touch", L"BreakCritical", L"烟花", L"TapEx", L"BreakPerfect"})
             SendMessage(combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(label));
-        add(L"STATIC", L"音量", 0, 24, 282, 100, 24, 0);
-        volumeValue = add(L"EDIT", std::to_wstring(settings.volume).c_str(), ES_NUMBER | ES_AUTOHSCROLL | ES_CENTER | WS_TABSTOP, 78, 282, 40, 24, VOLUME_VALUE);
-        volumeSlider = add(TRACKBAR_CLASS, L"", TBS_HORZ | WS_TABSTOP, 124, 276, 320, 36, VOLUME);
+        add(L"STATIC", L"音量", 0, 24, 318, 100, 24, 0);
+        volumeValue = add(L"EDIT", std::to_wstring(settings.volume).c_str(), ES_NUMBER | ES_AUTOHSCROLL | ES_CENTER | WS_TABSTOP, 78, 318, 40, 24, VOLUME_VALUE);
+        volumeSlider = add(TRACKBAR_CLASS, L"", TBS_HORZ | WS_TABSTOP, 124, 312, 320, 36, VOLUME);
         SetWindowSubclass(volumeSlider, volumeSliderProcedure, VOLUME, reinterpret_cast<DWORD_PTR>(this));
         SendMessage(volumeSlider, TBM_SETRANGE, TRUE, MAKELPARAM(0, 100));
         SendMessage(volumeSlider, TBM_SETPOS, TRUE, settings.volume);
-        add(L"BUTTON", L"预览烟花与音效", BS_PUSHBUTTON | WS_TABSTOP, 24, 328, 205, 38, PREVIEW);
-        add(L"BUTTON", L"选择素材文件夹…", BS_PUSHBUTTON | WS_TABSTOP, 245, 328, 205, 38, IMPORT);
-        add(L"BUTTON", L"恢复内置素材", BS_PUSHBUTTON | WS_TABSTOP, 24, 380, 205, 32, RESET);
-        add(L"BUTTON", L"许可与开源", BS_PUSHBUTTON | WS_TABSTOP, 245, 380, 205, 32, LICENSES);
-        helpText = add(L"STATIC", L"混合模式：\nShift Ctrl Alt Win → 正解音\nEnter / 小键盘Enter → 绝赞大p\nEsc Tab CapsLock NumLock Insert Menu → 绝赞小p\nScrollLock PauseBreak 小键盘+-*/. → 绝赞小p\nPrintScreen → 烟花\nSpace Backspace Delete Pageup Pagedown End Home → 带套tap\n0-9 小键盘0-9 F1-F12 上下左右 → touch\n鼠标左键 → touch    鼠标右键 → tap\n鼠标中键 → 绝赞小p    鼠标侧键 → 正解音\n其他按键 → tap\n非混合模式：所有按键使用所选音效。", 0, 24, 422, 440, 210, 0);
-        status = add(L"STATIC", L"加载中…", 0, 24, 645, 440, 55, 0);
-        for (auto [id, value] : {std::pair{ENABLE, settings.keyboardEnabled}, {MOUSE, settings.mouseEnabled}, {FIREWORK, settings.fireworks}, {HDR, settings.hdr}, {ALL, settings.allDisplays}})
+        add(L"BUTTON", L"预览烟花与音效", BS_PUSHBUTTON | WS_TABSTOP, 24, 364, 205, 38, PREVIEW);
+        add(L"BUTTON", L"选择素材文件夹…", BS_PUSHBUTTON | WS_TABSTOP, 245, 364, 205, 38, IMPORT);
+        add(L"BUTTON", L"恢复内置素材", BS_PUSHBUTTON | WS_TABSTOP, 24, 416, 205, 32, RESET);
+        add(L"BUTTON", L"许可与开源", BS_PUSHBUTTON | WS_TABSTOP, 245, 416, 205, 32, LICENSES);
+        helpText = add(L"STATIC", L"混合模式：\nShift Ctrl Alt Win → 正解音\nEnter / 小键盘Enter → 绝赞大p\nEsc Tab CapsLock NumLock Insert Menu → 绝赞小p\nScrollLock PauseBreak 小键盘+-*/. → 绝赞小p\nPrintScreen → 烟花\nSpace Backspace Delete Pageup Pagedown End Home → 带套tap\n0-9 小键盘0-9 F1-F12 上下左右 → touch\n鼠标左键 → touch    鼠标右键 → tap\n鼠标中键 → 绝赞小p    鼠标侧键 → 正解音\n其他按键 → tap\n非混合模式：所有按键使用所选音效。", 0, 24, 458, 440, 210, 0);
+        status = add(L"STATIC", L"加载中…", 0, 24, 681, 440, 55, 0);
+        for (auto [id, value] : {std::pair{ENABLE, settings.keyboardEnabled}, {MOUSE, settings.mouseEnabled}, {FIREWORK, settings.fireworks}, {HDR, settings.hdr}, {ALL, settings.allDisplays}, {RANDOM_POSITION, settings.randomPosition}})
             CheckDlgButton(window, id, value ? BST_CHECKED : BST_UNCHECKED);
         SendMessage(combo, CB_SETCURSEL, settings.pack, 0);
     }
@@ -281,7 +282,7 @@ class Application
             for (auto h : monitors)
                 overlays.push_back(renderer->createOverlay(instance, h));
         }
-        sim.burst(clockSeconds());
+        sim.burst(clockSeconds(), settings.randomPosition);
         ++fireworkCount;
         SetTimer(window, 1, 16, nullptr);
     }
@@ -415,6 +416,11 @@ class Application
                 settings.hdr = IsDlgButtonChecked(window, HDR) == BST_CHECKED;
                 settings.allDisplays = IsDlgButtonChecked(window, ALL) == BST_CHECKED;
                 stopEffects();
+                save();
+            }
+            if (id == RANDOM_POSITION)
+            {
+                settings.randomPosition = IsDlgButtonChecked(window, RANDOM_POSITION) == BST_CHECKED;
                 save();
             }
             if (id == PACK && HIWORD(a) == CBN_SELCHANGE)
@@ -562,13 +568,13 @@ public:
         wc.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
         wc.hIcon = LoadIcon(nullptr, IDI_APPLICATION);
         RegisterClass(&wc);
-        HWND w = CreateWindow(wc.lpszClassName, L"Thock maimai", WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX, CW_USEDEFAULT, CW_USEDEFAULT, 500, 760, nullptr, nullptr, h, this);
+        HWND w = CreateWindow(wc.lpszClassName, L"Thock maimai", WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX, CW_USEDEFAULT, CW_USEDEFAULT, 500, 800, nullptr, nullptr, h, this);
         if (!w)
             throw std::runtime_error("Settings window failed");
         controls();
         UINT dpi = GetDpiForWindow(window);
         scaleControls(dpi);
-        RECT desired{0, 0, MulDiv(480, dpi, 96), MulDiv(760, dpi, 96)};
+        RECT desired{0, 0, MulDiv(480, dpi, 96), MulDiv(800, dpi, 96)};
         AdjustWindowRectExForDpi(&desired, DWORD(GetWindowLongPtr(window, GWL_STYLE)), FALSE, 0, dpi);
         SetWindowPos(window, nullptr, 0, 0, desired.right - desired.left, desired.bottom - desired.top, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
         tray.cbSize = sizeof(tray);
@@ -792,6 +798,18 @@ void Application::integrationCheck(const fs::path &output)
     input('A', false);
     input('A', true);
     check("heldKeyDeduplicated", soundRequests[size_t(Sound::Tap)] == tapRequests + 1);
+    check("randomPositionDefaultsOff", !settings.randomPosition && sim.bursts.back().origin == std::array<double, 2>{.5, .5});
+    toggle(RANDOM_POSITION, true);
+    firework();
+    auto firstOrigin = sim.bursts.back().origin;
+    check("randomPositionInsideScreen", firstOrigin[0] >= .2 && firstOrigin[0] <= .8 && firstOrigin[1] >= .2 && firstOrigin[1] <= .8);
+    firework();
+    check("randomPositionChangesPerTrigger", sim.bursts.back().origin != firstOrigin);
+    check("randomPositionStableDuringAnimation", sim.bursts[sim.bursts.size() - 2].origin == firstOrigin);
+    check("randomPositionSaved", Settings::parse(Json::parse(readText(config))).randomPosition);
+    toggle(RANDOM_POSITION, false);
+    firework();
+    check("randomPositionOffReturnsToCenter", sim.bursts.back().origin == std::array<double, 2>{.5, .5});
     for (auto key : {WORD(VK_SPACE), WORD(VK_RETURN), WORD(VK_BACK), WORD(VK_ESCAPE)})
     {
         Sound sound = route(key, 0);
@@ -878,6 +896,16 @@ static int selfTest(HINSTANCE instance, const fs::path &root, const fs::path &fo
     Json proof = {{"sdrPeak", sdr.peak}, {"hdrPeak", hdr.peak}, {"transparentCorner", sdr.cornerAlpha}, {"visiblePixels", sdr.visible}, {"defaultHdr", Settings{}.hdr}};
     if (sdr.peak > 1.001 || hdr.peak < 1.1 || sdr.cornerAlpha > .001 || sdr.visible < 100)
         throw std::runtime_error("Pixel validation failed: " + proof.dump());
+    sim.bursts.back().origin = {.25, .5};
+    auto left = renderer.proof(sim, .20, 1, root / "preview-position-left.png");
+    sim.bursts.back().origin = {.75, .5};
+    auto right = renderer.proof(sim, .20, 1, root / "preview-position-right.png");
+    proof["leftPositionAlphaCenterX"] = left.alphaCenterX;
+    proof["rightPositionAlphaCenterX"] = right.alphaCenterX;
+    proof["positionMovesRenderedPixels"] = right.alphaCenterX - left.alphaCenterX > .05;
+    if (!proof["positionMovesRenderedPixels"].get<bool>())
+        throw std::runtime_error("Burst origin did not move rendered pixels");
+    sim.bursts.back().origin = {.5, .5};
     Audio audio(assets);
     Json samples = Json::array();
     for (size_t index = 0; index < audio.waves.size(); ++index)

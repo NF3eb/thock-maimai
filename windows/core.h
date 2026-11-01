@@ -163,11 +163,11 @@ inline Sound mouseSound(int pack, MouseButton button)
 }
 struct Settings
 {
-    bool keyboardEnabled = true, mouseEnabled = true, fireworks = false, hdr = false, allDisplays = false;
+    bool keyboardEnabled = true, mouseEnabled = true, fireworks = false, hdr = false, allDisplays = false, randomPosition = false;
     int pack = 0;
     int volume = 10;
     std::string assetPath;
-    Json json() const { return {{"keyboardenabled", keyboardEnabled}, {"mouseEnabled", mouseEnabled}, {"fireworks", fireworks}, {"hdr", hdr}, {"allDisplays", allDisplays}, {"pack", pack}, {"volume", volume}, {"assetPath", assetPath}}; }
+    Json json() const { return {{"keyboardenabled", keyboardEnabled}, {"mouseEnabled", mouseEnabled}, {"fireworks", fireworks}, {"hdr", hdr}, {"allDisplays", allDisplays}, {"randomPosition", randomPosition}, {"pack", pack}, {"volume", volume}, {"assetPath", assetPath}}; }
     static Settings parse(const Json &j)
     {
         Settings s;
@@ -176,6 +176,7 @@ struct Settings
         s.fireworks = j.value("fireworks", true);
         s.hdr = j.value("hdr", false);
         s.allDisplays = j.value("allDisplays", false);
+        s.randomPosition = j.value("randomPosition", false);
         s.pack = std::clamp(j.value("pack", 0), 0, 7);
         if (j.contains("volume"))
         {
@@ -195,6 +196,8 @@ struct Particle
 struct Burst
 {
     double start = 0;
+    // Stable normalized screen coordinates, sampled once per trigger.
+    std::array<double, 2> origin{.5, .5};
     std::vector<Particle> particles;
 };
 class Simulation
@@ -247,13 +250,15 @@ public:
         emitters = std::move(list);
         bursts.clear();
     }
-    void burst(double now)
+    void burst(double now, bool randomPosition = false)
     {
         expire(now);
         if (bursts.size() >= 6)
             bursts.erase(bursts.begin());
         Burst b;
         b.start = now;
+        if (randomPosition)
+            b.origin = {.2 + .6 * random(), .2 + .6 * random()};
         for (size_t i = 0; i < emitters.size(); ++i)
         {
             auto &e = emitters[i];
