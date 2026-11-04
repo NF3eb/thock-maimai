@@ -130,11 +130,23 @@ class Application
     }
     bool handleVolumeKeyMessage(const MSG &message)
     {
-        if ((message.hwnd == keyboardVolumeValue || message.hwnd == mouseVolumeValue) && message.message == WM_KEYDOWN && message.wParam == VK_RETURN)
+        if ((message.hwnd == keyboardVolumeValue || message.hwnd == mouseVolumeValue) && message.message == WM_KEYDOWN)
         {
-            if ((message.lParam & (1LL << 30)) == 0)
+            if ((message.lParam & (1LL << 30)) != 0)
+                return true;
+            if (message.wParam == VK_ESCAPE)
+            {
+                bool mouse = message.hwnd == mouseVolumeValue;
+                int value = mouse ? settings.mouseVolume : settings.keyboardVolume;
+                SetWindowText(message.hwnd, std::to_wstring(value).c_str());
                 SetFocus(window);
-            return true;
+                return true;
+            }
+            if (message.wParam == VK_RETURN)
+            {
+                SetFocus(window);
+                return true;
+            }
         }
         return false;
     }
@@ -755,6 +767,11 @@ void Application::integrationCheck(const fs::path &output)
     PostMessage(keyboardVolumeValue, WM_KEYDOWN, VK_RETURN, 0);
     pump(.02);
     check("keyboardVolumeInputCommitsOnEnterAndBlurs", settings.keyboardVolume == 12 && SendMessage(keyboardVolumeSlider, TBM_GETPOS, 0, 0) == 12 && GetFocus() != keyboardVolumeValue);
+    SetWindowText(keyboardVolumeValue, L"99");
+    SetFocus(keyboardVolumeValue);
+    PostMessage(keyboardVolumeValue, WM_KEYDOWN, VK_ESCAPE, 0);
+    pump(.02);
+    check("keyboardVolumeEscapeCancelsAndBlurs", settings.keyboardVolume == 12 && text(keyboardVolumeValue) == L"12" && GetFocus() != keyboardVolumeValue);
     SetWindowText(keyboardVolumeValue, L"150");
     check("keyboardVolumeInputDefersClamping", settings.keyboardVolume == 12 && text(keyboardVolumeValue) == L"150");
     commitVolume(false);
@@ -766,6 +783,11 @@ void Application::integrationCheck(const fs::path &output)
     check("mouseVolumeWheelUpIncreases", settings.mouseVolume == 66 && text(mouseVolumeValue) == L"66");
     SendMessage(mouseVolumeSlider, WM_MOUSEWHEEL, MAKEWPARAM(0, WORD(-WHEEL_DELTA)), 0);
     check("mouseVolumeWheelDownDecreases", settings.mouseVolume == 65 && text(mouseVolumeValue) == L"65");
+    SetWindowText(mouseVolumeValue, L"99");
+    SetFocus(mouseVolumeValue);
+    PostMessage(mouseVolumeValue, WM_KEYDOWN, VK_ESCAPE, 0);
+    pump(.02);
+    check("mouseVolumeEscapeCancelsAndBlurs", settings.mouseVolume == 65 && text(mouseVolumeValue) == L"65" && GetFocus() != mouseVolumeValue);
     SetWindowText(mouseVolumeValue, L"12");
     commitVolume(true);
     check("mouseVolumeInputUpdatesSlider", settings.mouseVolume == 12 && SendMessage(mouseVolumeSlider, TBM_GETPOS, 0, 0) == 12 && settings.keyboardVolume == 35);
