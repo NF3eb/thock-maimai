@@ -94,6 +94,9 @@ CI 会把 EXE 单独复制到带空格和中文的空目录，再运行上述检
 技术参考：[DirectComposition](https://learn.microsoft.com/en-us/windows/win32/api/dxgi1_2/nf-dxgi1_2-idxgifactory2-createswapchainforcomposition)、[Windows Raw Input](https://learn.microsoft.com/en-us/windows/win32/inputdev/using-raw-input)。
 
 # 更新日志
+## v1.1.1
+- fix: 修复了在输入键盘音量/鼠标音量时按下Esc不会退出输入框。
+- 更改了ui布局与窗口大小。
 ## v1.1.0
 - fix: 系统托盘中的程序的右键浮窗中仅有“启用键盘音效”，现添加“启用鼠标音效”，用于控制是否启用鼠标点击音效。
 - feat: 将主分支的“随机烟花位置”特征整合到此分支中。
