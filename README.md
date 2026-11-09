@@ -101,6 +101,9 @@ CI 会把 EXE 单独复制到带空格和中文的空目录，再运行上述检
 技术参考：[DirectComposition](https://learn.microsoft.com/en-us/windows/win32/api/dxgi1_2/nf-dxgi1_2-idxgifactory2-createswapchainforcomposition)、[Windows Raw Input](https://learn.microsoft.com/en-us/windows/win32/inputdev/using-raw-input)。
 
 # 更新日志
+## v1.1.2
+- fix: 修复了在按下部分与系统相关的快捷键（例如Alt+Tab，Win+E，Ctrl+Shift+Alt+Win+W）时，最后一个按键不会正常触发音效。
+- doc: 在README.md中更新了bug列表。
 ## v1.1.1
 - fix: 修复了在输入键盘音量/鼠标音量时按下Esc不会退出输入框。
 - 更改了ui布局与窗口大小。
