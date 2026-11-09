@@ -85,6 +85,13 @@ ctest --test-dir build -C Release --output-on-failure
 
 CI 会把 EXE 单独复制到带空格和中文的空目录，再运行上述检查。CI 无可用音频输出设备时，会明确记录 `audioDeviceAvailable: false`，不会将解码或调用请求宣称为扬声器播放验证。测试不代替真人听音和实体 HDR 亮度测量。独占全屏游戏、安全桌面等环境可能不显示普通桌面叠加窗口。
 
+# 目前已发现bug以及解决方案
+
+|bug描述|解决方案|修复可能|
+|-|-|-|
+|在后台打开文本编辑器（例如VSCode）并且打开settings.json时，高速滚动鼠标滚轮进行音量调节时，有可能会出现Cannot replace settings报错。|无。|不会被修复|
+|当聚焦窗口的进程完整性级别高于Thock maimai.exe时，此程序完全不会工作。相关的程序包括但不限于：明日方舟，鹰角启动器，哔哩哔哩直播姬。|将此程序以管理员身份运行。除此之外，目前没有可靠的方案。|不会被修复|
+
 # 代码与素材许可
 
 程序、烟花模拟、动画曲线处理、透明窗口、HDR 后处理、输入与音频逻辑、资源嵌入和打包工具均公开。Thock 原作者为 **Kamil Łobiński**，Thock maimai 原作者为[wzk112](https://github.com/wzk112)，原 MIT 许可保留；新增应用代码同样采用 MIT。Windows JSON 解析使用 [nlohmann/json 3.12.0](https://github.com/nlohmann/json)，许可位于 `windows/vendor/json.LICENSE`。
