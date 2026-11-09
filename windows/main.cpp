@@ -40,6 +40,10 @@ class Application
     std::vector<std::unique_ptr<Renderer::Overlay>> overlays;
     std::array<bool, 256> held{};
     std::array<bool, 5> mouseHeld{};
+    std::array<bool, 256> hookHeld{};
+    std::array<double, 256> hookHandled{};
+    HHOOK keyboardHook = nullptr;
+    static Application *hookOwner;
     HFONT font = nullptr;
     HFONT helpFont = nullptr;
     HWND status = nullptr;
@@ -76,6 +80,40 @@ class Application
                 app->setStatus(L"错误：" + wide(e.what()));
             }
         return DefWindowProc(w, m, a, b);
+    }
+    static LRESULT CALLBACK keyboardHookProcedure(int code, WPARAM message, LPARAM data)
+    {
+        if (code == HC_ACTION && hookOwner)
+        {
+            auto *keyboard = reinterpret_cast<KBDLLHOOKSTRUCT *>(data);
+            unsigned key = keyboard->vkCode;
+            if (key < 256)
+            {
+                bool down = message == WM_KEYDOWN || message == WM_SYSKEYDOWN;
+                bool up = message == WM_KEYUP || message == WM_SYSKEYUP;
+                bool modifier = key == VK_SHIFT || key == VK_LSHIFT || key == VK_RSHIFT ||
+                                key == VK_CONTROL || key == VK_LCONTROL || key == VK_RCONTROL ||
+                                key == VK_MENU || key == VK_LMENU || key == VK_RMENU ||
+                                key == VK_LWIN || key == VK_RWIN;
+                if (down)
+                {
+                    bool firstDown = !hookOwner->hookHeld[key];
+                    hookOwner->hookHeld[key] = true;
+                    bool hotkeyModifier = hookOwner->hookHeld[VK_SHIFT] || hookOwner->hookHeld[VK_LSHIFT] || hookOwner->hookHeld[VK_RSHIFT] ||
+                                          hookOwner->hookHeld[VK_CONTROL] || hookOwner->hookHeld[VK_LCONTROL] || hookOwner->hookHeld[VK_RCONTROL] ||
+                                          hookOwner->hookHeld[VK_MENU] || hookOwner->hookHeld[VK_LMENU] || hookOwner->hookHeld[VK_RMENU] ||
+                                          hookOwner->hookHeld[VK_LWIN] || hookOwner->hookHeld[VK_RWIN];
+                    if (firstDown && !modifier && hotkeyModifier && GetForegroundWindow() != hookOwner->window)
+                    {
+                        hookOwner->hookHandled[key] = clockSeconds();
+                        hookOwner->trigger(route(key, hookOwner->settings.pack));
+                    }
+                }
+                else if (up)
+                    hookOwner->hookHeld[key] = false;
+            }
+        }
+        return CallNextHookEx(nullptr, code, message, data);
     }
     static LRESULT CALLBACK volumeSliderProcedure(HWND w, UINT m, WPARAM a, LPARAM b, UINT_PTR id, DWORD_PTR ref)
     {
@@ -362,6 +400,13 @@ class Application
             return 0;
         case WM_DESTROY:
             stopEffects();
+            if (keyboardHook)
+            {
+                UnhookWindowsHookEx(keyboardHook);
+                keyboardHook = nullptr;
+            }
+            if (hookOwner == this)
+                hookOwner = nullptr;
             if (audio)
                 audio->stop();
             WTSUnRegisterSessionNotification(window);
@@ -420,7 +465,12 @@ class Application
                 held[key] = true;
                 // Do not echo input in this app's own settings window.
                 if (!suppress)
-                    trigger(route(key, settings.pack));
+                {
+                    double handled = hookHandled[key];
+                    hookHandled[key] = 0;
+                    if (handled == 0 || clockSeconds() - handled > .5)
+                        trigger(route(key, settings.pack));
+                }
             }
             break;
         }
@@ -526,6 +576,7 @@ class Application
         case WM_DISPLAYCHANGE:
             stopEffects();
             held.fill(false);
+            hookHeld.fill(false);
             mouseHeld.fill(false);
             return 0;
         case WM_DPICHANGED:
@@ -541,6 +592,7 @@ class Application
             {
                 stopEffects();
                 held.fill(false);
+                hookHeld.fill(false);
                 mouseHeld.fill(false);
                 if (audio)
                     audio->stop();
@@ -548,6 +600,7 @@ class Application
             if (a == PBT_APMRESUMEAUTOMATIC && audio)
             {
                 held.fill(false);
+                hookHeld.fill(false);
                 mouseHeld.fill(false);
                 audio->initialize();
             }
@@ -557,6 +610,7 @@ class Application
             {
                 locked = true;
                 held.fill(false);
+                hookHeld.fill(false);
                 mouseHeld.fill(false);
                 stopEffects();
                 if (audio)
@@ -566,11 +620,13 @@ class Application
             {
                 locked = false;
                 held.fill(false);
+                hookHeld.fill(false);
                 mouseHeld.fill(false);
             }
             return 0;
         case WM_INPUT_DEVICE_CHANGE:
             held.fill(false);
+            hookHeld.fill(false);
             mouseHeld.fill(false);
             return 0;
         case TRAY:
@@ -654,9 +710,17 @@ public:
         }
         ShowWindow(window, SW_SHOW);
         UpdateWindow(window);
+        hookOwner = this;
+        keyboardHook = SetWindowsHookExW(WH_KEYBOARD_LL, keyboardHookProcedure, h, 0);
+        if (!keyboardHook)
+            hookOwner = nullptr;
     }
     ~Application()
     {
+        if (keyboardHook)
+            UnhookWindowsHookEx(keyboardHook);
+        if (hookOwner == this)
+            hookOwner = nullptr;
         if (font)
             DeleteObject(font);
         if (helpFont)
@@ -679,6 +743,7 @@ public:
     }
     void integrationCheck(const fs::path &output);
 };
+Application *Application::hookOwner = nullptr;
 // Exercise Windows messages and SendInput against an app-owned foreground
 // window. This path is opt-in, never records user keys, and keeps test settings
 // beside the CI executable instead of modifying the user's preferences.
@@ -806,8 +871,17 @@ void Application::integrationCheck(const fs::path &output)
     RegisterClass(&wc);
     HWND target = CreateWindow(wc.lpszClassName, L"Thock CI input target", WS_OVERLAPPEDWINDOW, 40, 40, 450, 240, nullptr, nullptr, instance, nullptr);
     ShowWindow(target, SW_SHOW);
+    HWND previousForeground = GetForegroundWindow();
+    DWORD foregroundThread = previousForeground ? GetWindowThreadProcessId(previousForeground, nullptr) : 0;
+    DWORD currentThread = GetCurrentThreadId();
+    bool attached = foregroundThread && foregroundThread != currentThread &&
+                    AttachThreadInput(currentThread, foregroundThread, TRUE);
+    BringWindowToTop(target);
     SetForegroundWindow(target);
+    SetActiveWindow(target);
     SetFocus(target);
+    if (attached)
+        AttachThreadInput(currentThread, foregroundThread, FALSE);
     pump(.2);
     check("foregroundTarget", GetForegroundWindow() == target);
     tap('A');
@@ -819,6 +893,11 @@ void Application::integrationCheck(const fs::path &output)
         tapExtended(key);
         check(("extended_" + std::to_string(key)).c_str(), soundRequests[size_t(sound)] == previous + 1);
     }
+    size_t modifiedBefore = soundRequests[size_t(Sound::Tap)];
+    input(VK_CONTROL, false);
+    tap('B');
+    input(VK_CONTROL, true);
+    check("modifiedKeyHookNoDuplicate", soundRequests[size_t(Sound::Tap)] == modifiedBefore + 1);
     POINT originalCursor{};
     GetCursorPos(&originalCursor);
     struct CursorRestore
